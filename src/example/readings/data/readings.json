@@ -1,0 +1,370 @@
+[
+    {
+        "id": "r_8dbecf01c332",
+        "datum": "2026-02-06",
+        "viewName": "heinz",
+        "zeitstempel": "2026-02-06T15:32:04",
+        "werte": {
+            "95767470": {
+                "wertMA": "50",
+                "wertAktuell": ""
+            },
+            "95767471": {
+                "wertMA": "50",
+                "wertAktuell": ""
+            },
+            "95767472": {
+                "wertMA": "50",
+                "wertAktuell": ""
+            },
+            "95767473": {
+                "wertMA": "5001",
+                "wertAktuell": ""
+            },
+            "95767474": {
+                "wertMA": "50",
+                "wertAktuell": ""
+            },
+            "95767475": {
+                "wertMA": "50",
+                "wertAktuell": ""
+            }
+        }
+    },
+    {
+        "id": "r_ae656ff4c497",
+        "datum": "2025-02-06",
+        "viewName": "heinz",
+        "zeitstempel": "2026-02-06T15:52:25",
+        "werte": {
+            "95767470": {
+                "wertMA": "30",
+                "wertAktuell": ""
+            },
+            "95767471": {
+                "wertMA": "35",
+                "wertAktuell": ""
+            },
+            "95767472": {
+                "wertMA": "15",
+                "wertAktuell": ""
+            },
+            "95767473": {
+                "wertMA": "4500",
+                "wertAktuell": ""
+            },
+            "95767474": {
+                "wertMA": "20",
+                "wertAktuell": ""
+            },
+            "95767475": {
+                "wertMA": "25",
+                "wertAktuell": ""
+            }
+        }
+    },
+    {
+        "id": "r_7cbe7506d7d5",
+        "datum": "2024-01-02",
+        "viewName": "heinz",
+        "zeitstempel": "2026-02-06T15:52:43",
+        "werte": {
+            "95767470": {
+                "wertMA": "22",
+                "wertAktuell": ""
+            },
+            "95767471": {
+                "wertMA": "0",
+                "wertAktuell": ""
+            },
+            "95767472": {
+                "wertMA": "60",
+                "wertAktuell": ""
+            },
+            "95767473": {
+                "wertMA": "6005",
+                "wertAktuell": ""
+            },
+            "95767474": {
+                "wertMA": "55",
+                "wertAktuell": ""
+            },
+            "95767475": {
+                "wertMA": "15",
+                "wertAktuell": ""
+            }
+        }
+    },
+    {
+        "id": "r_3a4869320015",
+        "datum": "2022-06-06",
+        "viewName": "heinz",
+        "zeitstempel": "2026-02-06T15:41:23",
+        "werte": {
+            "95767470": {
+                "wertMA": "40",
+                "wertAktuell": ""
+            },
+            "95767471": {
+                "wertMA": "100",
+                "wertAktuell": ""
+            },
+            "95767472": {
+                "wertMA": "22",
+                "wertAktuell": ""
+            },
+            "95767473": {
+                "wertMA": "2500",
+                "wertAktuell": ""
+            },
+            "95767474": {
+                "wertMA": "30",
+                "wertAktuell": ""
+            },
+            "95767475": {
+                "wertMA": "70",
+                "wertAktuell": ""
+            }
+        }
+    },
+    {
+        "id": "r_b12584ff0afe",
+        "datum": "2026-02-06",
+        "viewName": "alex",
+        "zeitstempel": "2026-02-06T16:32:57",
+        "werte": {
+            "95767470": {
+                "wertMA": "50",
+                "wertAktuell": ""
+            },
+            "95767471": {
+                "wertMA": "50",
+                "wertAktuell": ""
+            },
+            "95767472": {
+                "wertMA": "50",
+                "wertAktuell": ""
+            },
+            "95767473": {
+                "wertMA": "5001",
+                "wertAktuell": ""
+            },
+            "95767474": {
+                "wertMA": "50",
+                "wertAktuell": ""
+            },
+            "95767475": {
+                "wertMA": "50",
+                "wertAktuell": ""
+            },
+            "12345": {
+                "wertMA": "20",
+                "wertAktuell": ""
+            },
+            "12344": {
+                "wertMA": "40",
+                "wertAktuell": ""
+            },
+            "12343": {
+                "wertMA": "30",
+                "wertAktuell": ""
+            },
+            "12346": {
+                "wertMA": "60",
+                "wertAktuell": ""
+            }
+        }
+    },
+    {
+        "id": "r_5b1c7486bb12",
+        "datum": "2025-02-06",
+        "viewName": "alex",
+        "zeitstempel": "2026-02-06T16:39:53",
+        "werte": {
+            "95767470": {
+                "wertMA": "30",
+                "wertAktuell": ""
+            },
+            "95767471": {
+                "wertMA": "35",
+                "wertAktuell": ""
+            },
+            "95767472": {
+                "wertMA": "15",
+                "wertAktuell": ""
+            },
+            "95767473": {
+                "wertMA": "4500",
+                "wertAktuell": ""
+            },
+            "95767474": {
+                "wertMA": "20",
+                "wertAktuell": ""
+            },
+            "95767475": {
+                "wertMA": "25",
+                "wertAktuell": ""
+            },
+            "12345": {
+                "wertMA": "5",
+                "wertAktuell": ""
+            },
+            "12344": {
+                "wertMA": "25",
+                "wertAktuell": ""
+            },
+            "12343": {
+                "wertMA": "14",
+                "wertAktuell": ""
+            },
+            "12346": {
+                "wertMA": "12",
+                "wertAktuell": ""
+            }
+        }
+    },
+    {
+        "id": "r_cfd9991026ec",
+        "datum": "2024-01-02",
+        "viewName": "alex",
+        "zeitstempel": "2026-02-06T16:40:13",
+        "werte": {
+            "95767470": {
+                "wertMA": "22",
+                "wertAktuell": ""
+            },
+            "95767471": {
+                "wertMA": "0",
+                "wertAktuell": ""
+            },
+            "95767472": {
+                "wertMA": "60",
+                "wertAktuell": ""
+            },
+            "95767473": {
+                "wertMA": "6005",
+                "wertAktuell": ""
+            },
+            "95767474": {
+                "wertMA": "55",
+                "wertAktuell": ""
+            },
+            "95767475": {
+                "wertMA": "15",
+                "wertAktuell": ""
+            },
+            "12345": {
+                "wertMA": "10",
+                "wertAktuell": ""
+            },
+            "12344": {
+                "wertMA": "70",
+                "wertAktuell": ""
+            },
+            "12343": {
+                "wertMA": "30",
+                "wertAktuell": ""
+            },
+            "12346": {
+                "wertMA": "20",
+                "wertAktuell": ""
+            }
+        }
+    },
+    {
+        "id": "r_c5f916db17ba",
+        "datum": "2023-06-01",
+        "viewName": "alex",
+        "zeitstempel": "2026-02-06T16:40:55",
+        "werte": {
+            "95767470": {
+                "wertMA": "40",
+                "wertAktuell": ""
+            },
+            "95767471": {
+                "wertMA": "50",
+                "wertAktuell": ""
+            },
+            "95767472": {
+                "wertMA": "10",
+                "wertAktuell": ""
+            },
+            "95767473": {
+                "wertMA": "3000",
+                "wertAktuell": ""
+            },
+            "95767474": {
+                "wertMA": "20",
+                "wertAktuell": ""
+            },
+            "95767475": {
+                "wertMA": "30",
+                "wertAktuell": ""
+            },
+            "12345": {
+                "wertMA": "90",
+                "wertAktuell": ""
+            },
+            "12344": {
+                "wertMA": "60",
+                "wertAktuell": ""
+            },
+            "12343": {
+                "wertMA": "70",
+                "wertAktuell": ""
+            },
+            "12346": {
+                "wertMA": "80",
+                "wertAktuell": ""
+            }
+        }
+    },
+    {
+        "id": "r_04f384804484",
+        "datum": "2022-06-06",
+        "viewName": "alex",
+        "zeitstempel": "2026-02-06T16:41:17",
+        "werte": {
+            "95767470": {
+                "wertMA": "40",
+                "wertAktuell": ""
+            },
+            "95767471": {
+                "wertMA": "100",
+                "wertAktuell": ""
+            },
+            "95767472": {
+                "wertMA": "22",
+                "wertAktuell": ""
+            },
+            "95767473": {
+                "wertMA": "2500",
+                "wertAktuell": ""
+            },
+            "95767474": {
+                "wertMA": "30",
+                "wertAktuell": ""
+            },
+            "95767475": {
+                "wertMA": "70",
+                "wertAktuell": ""
+            },
+            "12345": {
+                "wertMA": "20",
+                "wertAktuell": ""
+            },
+            "12344": {
+                "wertMA": "40",
+                "wertAktuell": ""
+            },
+            "12343": {
+                "wertMA": "40",
+                "wertAktuell": ""
+            },
+            "12346": {
+                "wertMA": "30",
+                "wertAktuell": ""
+            }
+        }
+    }
+]

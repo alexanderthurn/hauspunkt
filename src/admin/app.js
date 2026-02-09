@@ -258,7 +258,8 @@ function initMeterEvents() {
     mselInit('f-typ', meterFilterChange);
     document.getElementById('btn-qv').addEventListener('click', createViewFromFilter);
     document.getElementById('btn-to-overview').addEventListener('click', () => switchTab('overview'));
-    document.getElementById('qv-name').addEventListener('input', function() { this.dataset.edited = this.value ? '1' : ''; });
+    document.getElementById('qv-name').addEventListener('input', function () { this.dataset.edited = this.value ? '1' : ''; });
+    document.getElementById('btn-delete-filtered').addEventListener('click', deleteFilteredMeters);
     document.getElementById('btn-qv-start').addEventListener('click', () => {
         document.getElementById('btn-qv-start').style.display = 'none';
         document.getElementById('qv-form').style.display = '';
@@ -879,7 +880,7 @@ function getSelectedYear() {
 
 function filterByYear(items, yearVal) {
     if (!yearVal) return items;
-    return items.filter(function(item) {
+    return items.filter(function (item) {
         var d = typeof item === 'string' ? item : item.datum;
         return d.startsWith(yearVal);
     });
@@ -1056,15 +1057,17 @@ async function deleteReadings(ids) {
 // ── Export/Import: Zähler ────────────────────────────────────
 
 function initMeterMenu() {
-    document.getElementById('btn-meter-menu').addEventListener('click', function() {
+    document.getElementById('btn-meter-menu').addEventListener('click', function () {
         HPExport.createExportMenu(this, [
-            { label: editMode ? 'Bearbeiten beenden' : 'Bearbeiten', icon: '✏️', onClick: function() { setEditMode(!editMode); } },
+            { label: editMode ? 'Bearbeiten beenden' : 'Bearbeiten', icon: '✏️', onClick: function () { setEditMode(!editMode); } },
             { separator: true },
             { label: 'CSV exportieren', icon: '📄', onClick: exportMetersCSV },
             { label: 'Excel exportieren', icon: '📊', onClick: exportMetersExcel },
             { separator: true },
             { label: 'CSV importieren', icon: '📥', onClick: importMetersCSV },
             { label: 'Excel importieren', icon: '📥', onClick: importMetersExcel },
+            { separator: true },
+            { label: 'ISTA Import', icon: '🏢', onClick: importISTACSV },
         ]);
     });
 }
@@ -1128,13 +1131,15 @@ function importMetersExcel() {
 async function importMetersFromRows(rows) {
     if (!rows.length) { toast('Keine Daten gefunden.', 'warn'); return; }
     // Mapping: flexible Spaltennamen
-    const mapping = { 'nr': 'nr', 'nr.': 'nr', 'nummer': 'nr', 'zählernr': 'nr', 'zaehlernr': 'nr',
+    const mapping = {
+        'nr': 'nr', 'nr.': 'nr', 'nummer': 'nr', 'zählernr': 'nr', 'zaehlernr': 'nr',
         'bezeichnung': 'bezeichnung', 'name': 'bezeichnung',
         'haus': 'haus', 'gebäude': 'haus', 'gebaeude': 'haus',
         'einheit': 'einheit', 'wohnung': 'einheit',
         'typ': 'typ', 'type': 'typ', 'art': 'typ',
         'faktor': 'faktor', 'factor': 'faktor', 'umrechnungsfaktor': 'faktor',
-        'stichtag': 'stichtag', 'deadline': 'stichtag', 'abrechnungsstichtag': 'stichtag' };
+        'stichtag': 'stichtag', 'deadline': 'stichtag', 'abrechnungsstichtag': 'stichtag'
+    };
     const mapped = rows.map(r => {
         const m = {};
         Object.keys(r).forEach(k => {
@@ -1157,10 +1162,11 @@ async function importMetersFromRows(rows) {
     toast(mapped.length + ' Zähler importiert.', 'ok');
 }
 
+
 // ── Export/Import: Messwerte (Overview) ──────────────────────
 
 function initOverviewMenu() {
-    document.getElementById('btn-ov-menu').addEventListener('click', function() {
+    document.getElementById('btn-ov-menu').addEventListener('click', function () {
         HPExport.createExportMenu(this, [
             { label: 'CSV exportieren', icon: '📄', onClick: exportOverviewCSV },
             { label: 'Excel exportieren', icon: '📊', onClick: exportOverviewExcel },
@@ -1302,6 +1308,23 @@ function exportOverviewPDF() {
         orientation: 'landscape'
     });
     toast('PDF exportiert.', 'ok');
+}
+
+async function deleteFilteredMeters() {
+    const list = getFilteredMetersForExport();
+    if (!list.length) { toast('Keine Zähler zum Löschen gefunden.', 'warn'); return; }
+
+    if (!confirm(`${list.length} Zähler wirklich unwiderruflich löschen?`)) return;
+
+    try {
+        for (const m of list) {
+            await HP.api(API + '?action=meter_delete', { method: 'POST', body: { nr: m.nr } });
+        }
+        await loadAll();
+        toast(`${list.length} Zähler gelöscht.`, 'ok');
+    } catch (e) {
+        toast('Fehler beim Löschen: ' + e.message, 'err');
+    }
 }
 
 // ── Helpers ──────────────────────────────────────────────────

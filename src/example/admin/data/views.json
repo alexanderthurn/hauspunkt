@@ -1,0 +1,30 @@
+[
+    {
+        "id": "v_3a2a21761b66",
+        "name": "heinz",
+        "filter": {
+            "haus": "Meschede",
+            "einheit": [
+                "Allgemein",
+                "EG"
+            ],
+            "typ": ""
+        },
+        "token": "8c11ff12021248e4e9104a6ad1224000",
+        "editableFrom": "2026-02-06"
+    },
+    {
+        "id": "v_771bfd4a1556",
+        "name": "alex",
+        "filter": {
+            "haus": "Meschede",
+            "einheit": [
+                "Allgemein",
+                "EG",
+                "OG"
+            ],
+            "typ": ""
+        },
+        "token": "d2abadfe2cc1d3a1d7c4c4b35043f7af"
+    }
+]

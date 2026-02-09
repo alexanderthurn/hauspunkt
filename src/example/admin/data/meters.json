@@ -1,0 +1,105 @@
+[
+    {
+        "nr": "95767470",
+        "bezeichnung": "Küche 1",
+        "haus": "Meschede",
+        "einheit": "EG",
+        "typ": "HZ",
+        "faktor": "1.2"
+    },
+    {
+        "nr": "95767471",
+        "bezeichnung": "Küche 2",
+        "haus": "Meschede",
+        "einheit": "EG",
+        "typ": "HZ",
+        "faktor": "1.3"
+    },
+    {
+        "nr": "95767472",
+        "bezeichnung": "Bad 1",
+        "haus": "Meschede",
+        "einheit": "EG",
+        "typ": "HZ",
+        "faktor": "1.0"
+    },
+    {
+        "nr": "123123",
+        "bezeichnung": "A",
+        "haus": "Bonn",
+        "einheit": "EG",
+        "typ": "HZ",
+        "faktor": "",
+        "stichtag": "31.12"
+    },
+    {
+        "nr": "95767473",
+        "bezeichnung": "Boiler",
+        "haus": "Meschede",
+        "einheit": "Allgemein",
+        "typ": "Warmwasser",
+        "faktor": "1",
+        "stichtag": "31.12"
+    },
+    {
+        "nr": "95767474",
+        "bezeichnung": "Bad 2",
+        "haus": "Meschede",
+        "einheit": "EG",
+        "typ": "HZ",
+        "faktor": "0.2"
+    },
+    {
+        "nr": "95767475",
+        "bezeichnung": "Flur",
+        "haus": "Meschede",
+        "einheit": "EG",
+        "typ": "HZ",
+        "faktor": "1.0"
+    },
+    {
+        "nr": "",
+        "bezeichnung": "",
+        "haus": "",
+        "einheit": "",
+        "typ": "HZ",
+        "faktor": "",
+        "stichtag": "31.12"
+    },
+    {
+        "nr": "12345",
+        "bezeichnung": "Küche 1",
+        "haus": "Meschede",
+        "einheit": "OG",
+        "typ": "HZ",
+        "faktor": "1",
+        "stichtag": "31.12"
+    },
+    {
+        "nr": "12344",
+        "bezeichnung": "Bad",
+        "haus": "Meschede",
+        "einheit": "OG",
+        "typ": "HZ",
+        "faktor": "5",
+        "stichtag": "31.12"
+    },
+    {
+        "nr": "12343",
+        "bezeichnung": "Bad 2",
+        "haus": "Meschede",
+        "einheit": "OG",
+        "typ": "HZ",
+        "faktor": "1.5",
+        "stichtag": "31.12"
+    },
+    {
+        "nr": "12346",
+        "bezeichnung": "Flur",
+        "haus": "Meschede",
+        "einheit": "OG",
+        "typ": "HZ",
+        "faktor": "1",
+        "stichtag": "31.12"
+    }
+]
