@@ -164,8 +164,9 @@ function render() {
         var efDate = formatDateDE(viewData.view.editableFrom);
         h += '<div class="save-bar" style="text-align:center;color:#c62828;padding:8px 12px">Änderungen vor dem ' + esc(efDate) + ' sind gesperrt.</div>';
     } else {
-        h += '<div class="save-bar">';
-        h += '<textarea id="notizen" placeholder="Notizen (optional)..." style="width:100%;max-width:400px;height:60px;margin-bottom:8px;padding:8px;border:1px solid #ccc;border-radius:4px;font:inherit">' + esc(viewData.notizen || '') + '</textarea><br>';
+        h += '<div class="save-bar" style="text-align:left;max-width:400px;margin:10px auto">';
+        h += '<label for="notizen" style="display:block;font-weight:bold;margin-bottom:4px">Notizen (optional)</label>';
+        h += '<textarea id="notizen" placeholder="Hier können Besonderheiten notiert werden..." style="width:100%;height:60px;margin-bottom:8px;padding:8px;border:1px solid #ccc;border-radius:4px;font:inherit">' + esc(viewData.notizen || '') + '</textarea><br>';
         h += '<button class="save-btn" id="btn-save" onclick="doSave()">Speichern</button>';
         h += '</div>';
     }
@@ -359,9 +360,22 @@ function exportReadingsExcel() {
 
 function exportReadingsPDF() {
     var data = getReadingsForExport();
-    // PDF: Einheit, Nr, Bezeichnung, Typ, Stichtag, M/A, Aktuell
-    var head = ['Einheit', 'Nr.', 'Bezeichnung', 'Typ', 'Sticht.'];
-    if (showMA) head.push('M/A');
+
+    // Stichtage sammeln
+    var stichtage = [];
+    data.meters.forEach(function (m) {
+        var s = m.stichtag || '31.12';
+        if (stichtage.indexOf(s) === -1) stichtage.push(s);
+    });
+    stichtage.sort();
+
+    // PDF: Einheit, Nr, Bezeichnung, Typ, M/A, Aktuell
+    var head = ['Einheit', 'Nr.', 'Bezeichnung', 'Typ'];
+    if (showMA) {
+        var maLabel = 'M/A';
+        if (stichtage.length > 0) maLabel += ' (' + stichtage.join(', ') + ')';
+        head.push(maLabel);
+    }
     if (showAktuell) head.push('Aktuell');
 
     var body = [];
@@ -370,11 +384,11 @@ function exportReadingsPDF() {
 
     data.meters.forEach(function (m) {
         if (m.haus !== lastHaus) {
-            body.push([{ content: m.haus || 'Ohne Haus', colSpan: 5 + numMAColumns, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } }]);
+            body.push([{ content: m.haus || 'Ohne Haus', colSpan: 4 + numMAColumns, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } }]);
             lastHaus = m.haus;
         }
         var ex = data.existing[m.nr] || {};
-        var row = [m.einheit, m.nr, m.bezeichnung, m.typ, m.stichtag || '31.12'];
+        var row = [m.einheit, m.nr, m.bezeichnung, m.typ];
         if (showMA) row.push(ex.wertMA || '');
         if (showAktuell) row.push(ex.wertAktuell || '');
         body.push(row);
@@ -385,7 +399,7 @@ function exportReadingsPDF() {
         subtitle: data.meters.length + ' Zähler',
         head: head,
         body: body,
-        filename: 'ablesung_' + viewData.view.name + '.pdf',
+        filename: 'ablesung_' + viewData.view.name + '_' + currentDatum + '.pdf',
         orientation: 'landscape',
         afterDraw: function (doc, finalY, pageW) {
             var y = finalY + 10;
