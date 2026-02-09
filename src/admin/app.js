@@ -970,12 +970,23 @@ function renderOverview() {
         if (info.hasAk) { displayCols.push({ ...dObj, sc: 'Aktuell', isFirst: first }); first = false; }
     });
 
+    if (displayCols.length === 0) {
+        displayCols.push({ isPlaceholder: true, sc: 'Keine Daten vorhanden' });
+    }
+
     // Schritt 4: Header rendern
     const thead = document.getElementById('ov-head');
     thead.innerHTML = '<th class="fix-haus">Haus</th><th class="fix-einheit">Einheit</th><th class="fix-nr">Nr.</th><th class="fix-bez">Bezeichnung</th>';
     const ovBaseUrl = window.location.href.replace(/admin\/.*$/, '');
     displayCols.forEach(dc => {
         const th = document.createElement('th');
+        if (dc.isPlaceholder) {
+            th.textContent = dc.sc;
+            th.style.color = '#999';
+            th.style.fontWeight = 'normal';
+            thead.appendChild(th);
+            return;
+        }
         th.style.cursor = 'default';
         let dateStr = HP.formatDate(dc.datum);
 
@@ -1022,8 +1033,14 @@ function renderOverview() {
         const tr = document.createElement('tr');
         tr.innerHTML = `<td class="fix-haus">${esc(m.haus)}</td><td class="fix-einheit">${esc(m.einheit)}</td><td class="fix-nr">${esc(m.nr)}</td><td class="fix-bez">${esc(m.bezeichnung)}</td>`;
         displayCols.forEach(dc => {
-            const v = mergedValMap[m.nr + '|' + dc.datum];
             const td = document.createElement('td');
+            if (dc.isPlaceholder) {
+                td.innerHTML = '<span style="color:#eee">—</span>';
+                td.style.textAlign = 'center';
+                tr.appendChild(td);
+                return;
+            }
+            const v = mergedValMap[m.nr + '|' + dc.datum];
             if (v) {
                 const val = dc.sc === 'M/A' ? (v.wertMA || '') : (v.wertAktuell || '');
                 const isConflict = dc.sc === 'M/A' ? v.maConflict : v.akConflict;
