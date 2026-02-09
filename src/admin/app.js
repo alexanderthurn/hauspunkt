@@ -30,8 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initMeterEvents();
     initViewEvents();
     initOverviewEvents();
-    initMeterMenu();
-    initOverviewMenu();
+    initGlobalMenu();
     loadAll();
 });
 
@@ -1163,17 +1162,36 @@ async function deleteReadings(ids) {
 
 // ── Export/Import: Zähler ────────────────────────────────────
 
-function initMeterMenu() {
-    document.getElementById('btn-meter-menu').addEventListener('click', function () {
-        HPExport.createExportMenu(this, [
-            { label: editMode ? 'Bearbeiten beenden' : 'Bearbeiten', icon: '✏️', onClick: function () { setEditMode(!editMode); } },
-            { separator: true },
-            { label: 'Dafür Messwerte anzeigen', icon: '📊', onClick: () => switchTab('overview') },
-            { label: 'Dafür Ableser anlegen', icon: '👤', onClick: showCreateViewModal },
-            { separator: true },
-            { label: 'Dafür CSV exportieren', icon: '📄', onClick: exportMetersCSV },
-            { label: 'Dafür Excel exportieren', icon: '📊', onClick: exportMetersExcel },
-        ]);
+function initGlobalMenu() {
+    const tBtn = document.getElementById('btn-toggle-edit');
+    if (tBtn) {
+        tBtn.addEventListener('click', () => setEditMode(false));
+    }
+
+    document.getElementById('btn-global-menu').addEventListener('click', function () {
+        const activeTab = document.querySelector('.tab.act').dataset.tab;
+        const menu = [];
+
+        if (activeTab === 'meters') {
+            if (!editMode) {
+                menu.push({ label: 'Bearbeiten', icon: '✏️', onClick: () => setEditMode(true) });
+                menu.push({ separator: true });
+            }
+            menu.push({ label: 'Messwerte anzeigen', icon: '📊', onClick: () => switchTab('overview') });
+            menu.push({ label: 'Ableser anlegen', icon: '👤', onClick: showCreateViewModal });
+            menu.push({ separator: true });
+            menu.push({ label: 'CSV exportieren', icon: '📄', onClick: exportMetersCSV });
+            menu.push({ label: 'Excel exportieren', icon: '📊', onClick: exportMetersExcel });
+        } else if (activeTab === 'overview') {
+            menu.push({ label: 'CSV exportieren', icon: '📄', onClick: exportOverviewCSV });
+            menu.push({ label: 'Excel exportieren', icon: '📊', onClick: exportOverviewExcel });
+            menu.push({ label: 'PDF exportieren', icon: '📕', onClick: exportOverviewPDF });
+        } else if (activeTab === 'views') {
+            menu.push({ label: 'Zählerverwaltung', icon: '📐', onClick: () => switchTab('meters') });
+            menu.push({ label: 'Messwerte anzeigen', icon: '📊', onClick: () => switchTab('overview') });
+        }
+
+        HPExport.createExportMenu(this, menu);
     });
 }
 
@@ -1270,15 +1288,6 @@ async function importMetersFromRows(rows) {
 
 // ── Export/Import: Messwerte (Overview) ──────────────────────
 
-function initOverviewMenu() {
-    document.getElementById('btn-ov-menu').addEventListener('click', function () {
-        HPExport.createExportMenu(this, [
-            { label: 'CSV exportieren', icon: '📄', onClick: exportOverviewCSV },
-            { label: 'Excel exportieren', icon: '📊', onClick: exportOverviewExcel },
-            { label: 'PDF exportieren', icon: '📕', onClick: exportOverviewPDF },
-        ]);
-    });
-}
 
 function getOverviewExportData() {
     const haus = getSelVals(document.getElementById('of-haus'));

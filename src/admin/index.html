@@ -628,7 +628,11 @@
 </head>
 
 <body>
-    <div class="hdr"><a href="./" style="display:flex"><img src="../common/logo.svg" alt="HP"></a></div>
+    <div class="hdr">
+        <a href="./" style="display:flex"><img src="../common/logo.svg" alt="HP"></a>
+        <span style="flex:1"></span>
+        <button class="b" id="btn-global-menu" style="position:relative">☰</button>
+    </div>
     <nav class="tabs">
         <button class="tab act" data-tab="meters">Zählerverwaltung</button>
         <button class="tab" data-tab="views">Ableser</button>
@@ -646,7 +650,7 @@
                     <div id="f-typ" class="msel"></div>
                 </span>
                 <span class="sp"></span>
-                <button class="b" id="btn-meter-menu" style="position:relative">☰</button>
+                <button class="b edit-only" id="btn-toggle-edit">Bearbeiten beenden</button>
             </div>
             <div style="overflow-x:auto">
                 <table>
@@ -722,7 +726,6 @@
                     <div id="of-werte" class="msel"></div>
                 </span>
                 <span class="sp"></span>
-                <button class="b" id="btn-ov-menu" style="position:relative">☰</button>
             </div>
             <p class="hint">M/A = Memory/Stichtag, Aktuell = Ablesewert/Alt-Wert</p>
             <div class="ov-scroll">
