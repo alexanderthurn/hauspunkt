@@ -483,20 +483,22 @@ function updateSaveBar() {
     const bar = document.getElementById('savebar');
     const info = document.getElementById('save-info');
     const actions = document.getElementById('edit-actions');
+    const mainActions = document.getElementById('main-edit-actions');
     const ed = Object.keys(dirtyRows).length;
     const nw = newRows.length;
     const dl = deletedNrs.length;
-    if (ed || nw || dl) {
-        bar.style.display = 'inline-flex';
-        if (actions) actions.style.display = 'none';
+
+    const hasChanges = !!(ed || nw || dl);
+    bar.style.display = hasChanges ? 'inline-flex' : 'none';
+    if (actions) actions.style.display = hasChanges ? 'none' : 'inline-flex';
+    if (mainActions) mainActions.style.display = hasChanges ? 'none' : 'inline-flex';
+
+    if (hasChanges) {
         const p = [];
         if (ed) p.push(ed + ' geändert');
         if (nw) p.push(nw + ' neu');
         if (dl) p.push(dl + ' gelöscht');
         info.textContent = p.join(', ');
-    } else {
-        bar.style.display = 'none';
-        if (actions) actions.style.display = 'inline-flex';
     }
 }
 
