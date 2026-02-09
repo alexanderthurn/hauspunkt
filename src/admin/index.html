@@ -624,6 +624,73 @@
             border: 1px solid #ccc;
             border-radius: 2px;
         }
+
+        .row-actions {
+            display: flex;
+            gap: 4px;
+        }
+
+        .row-sub {
+            font-size: 11px;
+            color: #888;
+        }
+
+        .mod-mobile {
+            display: none;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        @media (max-width: 600px) {
+            .col-desk {
+                display: none;
+            }
+
+            .mod-mobile {
+                display: block;
+            }
+
+            .wrap {
+                padding: 4px 6px;
+            }
+
+            .tab {
+                padding: 7px 10px;
+                font-size: 14px;
+            }
+
+            .bar .flt {
+                font-size: 13px;
+            }
+
+            .b {
+                padding: 4px 8px;
+            }
+
+            .v-actions {
+                width: 1%;
+                white-space: nowrap;
+            }
+
+            .v-form>div {
+                width: 100%;
+            }
+
+            .v-form input,
+            .v-form select {
+                width: 100% !important;
+            }
+
+            .modal-ov {
+                padding: 10px;
+            }
+
+            .modal-c {
+                padding: 15px;
+            }
+        }
     </style>
 </head>
 
@@ -697,9 +764,9 @@
                     <thead>
                         <tr>
                             <th style="cursor:default">Name</th>
-                            <th style="cursor:default">Filter</th>
-                            <th style="cursor:default">Zähler</th>
-                            <th style="cursor:default">Änderbar ab</th>
+                            <th style="cursor:default" class="col-desk">Filter</th>
+                            <th style="cursor:default" class="col-desk">Zähler</th>
+                            <th style="cursor:default" class="col-desk">Änderbar ab</th>
                             <th style="cursor:default">Link</th>
                             <th style="cursor:default;width:80px"></th>
                         </tr>

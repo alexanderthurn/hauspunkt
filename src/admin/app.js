@@ -694,7 +694,26 @@ function renderViews() {
             const editFrom = v.editableFrom || '';
             const editFromDisplay = editFrom ? HP.formatDate(editFrom) : '—';
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td><b>${esc(v.name)}</b></td><td>${esc(fDesc)}</td><td>${matched.length}</td><td style="white-space:nowrap"><span class="ef-display">${esc(editFromDisplay)}</span></td><td><span class="v-link">${esc(link)}</span> <button class="b b-p btn-copy" title="Kopieren">📋</button> <a href="${esc(link)}" class="b b-p" title="Öffnen" target="_blank">↗</a> <a href="${esc(chartLink)}" class="b b-p" title="Diagramm" target="_blank">📈</a></td><td style="white-space:nowrap"></td>`;
+            tr.innerHTML = `
+                <td>
+                    <b>${esc(v.name)}</b>
+                    <div class="row-sub mod-mobile">
+                        <span>${matched.length} Zähler</span> · 
+                        <span>${esc(editFromDisplay)}</span>
+                    </div>
+                </td>
+                <td class="col-desk">${esc(fDesc)}</td>
+                <td class="col-desk text-center">${matched.length}</td>
+                <td style="white-space:nowrap" class="col-desk"><span class="ef-display">${esc(editFromDisplay)}</span></td>
+                <td>
+                    <div class="row-sub mod-mobile" style="margin-bottom:4px">${esc(fDesc)}</div>
+                    <div class="row-actions">
+                        <button class="b b-p btn-copy" title="Link kopieren">📋</button>
+                        <a href="${esc(link)}" class="b b-p" title="Ablesung öffnen" target="_blank">↗</a>
+                        <a href="${esc(chartLink)}" class="b b-p" title="Diagramm" target="_blank">📈</a>
+                    </div>
+                </td>
+                <td style="white-space:nowrap" class="v-actions"></td>`;
             tr.querySelector('.btn-copy').onclick = (e) => { e.preventDefault(); navigator.clipboard.writeText(link); toast('Kopiert!', 'ok'); };
             const tdAct = tr.lastElementChild;
             const btnEdit = mk('button', '✏', 'b b-p');
