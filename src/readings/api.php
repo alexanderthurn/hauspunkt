@@ -27,7 +27,7 @@ if ($action === 'load' && $method === 'GET') {
     if (empty($name)) {
         hp_error_response('Name fehlt.');
     }
-    
+
     $views = hp_read_json(__DIR__ . '/../admin/data/views.json');
     $view = null;
     foreach ($views as $v) {
@@ -39,22 +39,27 @@ if ($action === 'load' && $method === 'GET') {
     if (!$view) {
         hp_error_response('Ansicht nicht gefunden.', 404);
     }
-    
+
     // Zähler laden und filtern
     $meters = hp_read_json(__DIR__ . '/../admin/data/meters.json');
     $filter = $view['filter'] ?? [];
     $filtered = [];
     $meterNrs = [];
     foreach ($meters as $m) {
-        if (!empty($filter['haus']) && $m['haus'] !== $filter['haus']) continue;
+        if (!empty($filter['haus']) && $m['haus'] !== $filter['haus'])
+            continue;
         if (!empty($filter['einheit']) && is_array($filter['einheit']) && count($filter['einheit']) > 0) {
-            if (!in_array($m['einheit'], $filter['einheit'])) continue;
+            if (!in_array($m['einheit'], $filter['einheit']))
+                continue;
         }
-        if (!empty($filter['typ']) && $m['typ'] !== $filter['typ']) continue;
+        if (!empty($filter['typ']) && $m['typ'] !== $filter['typ'])
+            continue;
+        if (($m['aktiv'] ?? '1') === '0')
+            continue;
         $filtered[] = $m;
         $meterNrs[] = $m['nr'];
     }
-    
+
     // Bestehende Readings für gewähltes Datum laden
     // 1) Werte von ALLEN Ablesern für diesen Tag sammeln (für die Zähler, auf die diese Ansicht Zugriff hat)
     // 2) Eigene Werte haben Priorität und überschreiben fremde
@@ -65,8 +70,10 @@ if ($action === 'load' && $method === 'GET') {
 
     // Zuerst: Werte von anderen Ablesern sammeln
     foreach ($readings as $r) {
-        if ($r['datum'] !== $datum) continue;
-        if (($r['viewName'] ?? '') === $name) continue; // eigene Werte kommen danach
+        if ($r['datum'] !== $datum)
+            continue;
+        if (($r['viewName'] ?? '') === $name)
+            continue; // eigene Werte kommen danach
         $werte = $r['werte'] ?? [];
         foreach ($werte as $meterId => $vals) {
             if (in_array($meterId, $meterNrs)) {
@@ -76,9 +83,9 @@ if ($action === 'load' && $method === 'GET') {
                     // Nur setzen, wenn noch nicht von einem anderen fremden Ableser belegt
                     if (!isset($existing[$meterId])) {
                         $existing[$meterId] = [
-                            'wertMA'      => $ma,
+                            'wertMA' => $ma,
                             'wertAktuell' => $ak,
-                            'source'      => $r['viewName'] ?? '',
+                            'source' => $r['viewName'] ?? '',
                         ];
                         $foreignSources[$meterId] = $r['viewName'] ?? '';
                     }
@@ -94,7 +101,7 @@ if ($action === 'load' && $method === 'GET') {
             foreach ($werte as $meterId => $vals) {
                 if (in_array($meterId, $meterNrs)) {
                     $existing[$meterId] = [
-                        'wertMA'      => $vals['wertMA'] ?? '',
+                        'wertMA' => $vals['wertMA'] ?? '',
                         'wertAktuell' => $vals['wertAktuell'] ?? '',
                     ];
                     // Eigene Werte → kein fremder Source mehr
@@ -110,12 +117,12 @@ if ($action === 'load' && $method === 'GET') {
         unset($vals['source']);
     }
     unset($vals);
-    
+
     hp_json_response([
-        'view'           => ['id' => $view['id'], 'name' => $view['name'], 'editableFrom' => $view['editableFrom'] ?? ''],
-        'meters'         => $filtered,
-        'datum'          => $datum,
-        'existing'       => $existing,
+        'view' => ['id' => $view['id'], 'name' => $view['name'], 'editableFrom' => $view['editableFrom'] ?? ''],
+        'meters' => $filtered,
+        'datum' => $datum,
+        'existing' => $existing,
         'foreignSources' => $foreignSources,
     ]);
 }
@@ -124,17 +131,17 @@ if ($action === 'load' && $method === 'GET') {
 
 if ($action === 'save' && $method === 'POST') {
     $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
-    
+
     if (strpos($contentType, 'application/json') === false) {
         hp_error_response('Ungültiger Content-Type.');
     }
-    
+
     $body = hp_get_json_body();
     $entries = $body['entries'] ?? [];
     $datum = (string) ($body['datum'] ?? date('Y-m-d'));
     $viewName = (string) ($body['viewName'] ?? '');
     $zeitstempel = date('Y-m-d\TH:i:s');
-    
+
     // Prüfung: editableFrom – Datum darf nicht vor dem erlaubten Zeitraum liegen
     if (!empty($viewName)) {
         $views = hp_read_json(__DIR__ . '/../admin/data/views.json');
@@ -148,29 +155,31 @@ if ($action === 'save' && $method === 'POST') {
             }
         }
     }
-    
+
     // Werte-Map aus Entries bauen
     $newWerte = [];
     foreach ($entries as $entry) {
         $meterId = (string) ($entry['meterId'] ?? '');
         $wertMA = (string) ($entry['wertMA'] ?? '');
         $wertAktuell = (string) ($entry['wertAktuell'] ?? '');
-        if ($meterId === '') continue;
+        if ($meterId === '')
+            continue;
         $newWerte[$meterId] = ['wertMA' => $wertMA, 'wertAktuell' => $wertAktuell];
     }
-    
+
     if (empty($newWerte)) {
         hp_json_response(['saved' => 0]);
     }
-    
+
     $readings = hp_read_json(__DIR__ . '/data/readings.json');
-    
+
     // Upsert: existierenden Eintrag für datum+viewName suchen
     $found = false;
     foreach ($readings as &$r) {
         if ($r['datum'] === $datum && ($r['viewName'] ?? '') === $viewName) {
             // Bestehende Werte mergen/überschreiben
-            if (!isset($r['werte'])) $r['werte'] = [];
+            if (!isset($r['werte']))
+                $r['werte'] = [];
             foreach ($newWerte as $mid => $vals) {
                 $r['werte'][$mid] = $vals;
             }
@@ -180,17 +189,17 @@ if ($action === 'save' && $method === 'POST') {
         }
     }
     unset($r);
-    
+
     if (!$found) {
         $readings[] = [
-            'id'          => hp_generate_id('r'),
-            'datum'       => $datum,
-            'viewName'    => $viewName,
+            'id' => hp_generate_id('r'),
+            'datum' => $datum,
+            'viewName' => $viewName,
             'zeitstempel' => $zeitstempel,
-            'werte'       => $newWerte,
+            'werte' => $newWerte,
         ];
     }
-    
+
     hp_write_json(__DIR__ . '/data/readings.json', $readings);
     hp_json_response(['saved' => count($newWerte)]);
 }
@@ -221,12 +230,18 @@ if ($action === 'history' && $method === 'GET') {
     $filtered = [];
     $meterNrs = [];
     foreach ($meters as $m) {
-        if (empty($m['nr'])) continue;
-        if (!empty($filter['haus']) && $m['haus'] !== $filter['haus']) continue;
+        if (empty($m['nr']))
+            continue;
+        if (!empty($filter['haus']) && $m['haus'] !== $filter['haus'])
+            continue;
         if (!empty($filter['einheit']) && is_array($filter['einheit']) && count($filter['einheit']) > 0) {
-            if (!in_array($m['einheit'], $filter['einheit'])) continue;
+            if (!in_array($m['einheit'], $filter['einheit']))
+                continue;
         }
-        if (!empty($filter['typ']) && $m['typ'] !== $filter['typ']) continue;
+        if (!empty($filter['typ']) && $m['typ'] !== $filter['typ'])
+            continue;
+        if (($m['aktiv'] ?? '1') === '0')
+            continue;
         $filtered[] = $m;
         $meterNrs[] = $m['nr'];
     }
@@ -246,12 +261,13 @@ if ($action === 'history' && $method === 'GET') {
         foreach ($werte as $meterId => $vals) {
             if (in_array($meterId, $meterNrs)) {
                 $relevantWerte[$meterId] = [
-                    'wertMA'      => $vals['wertMA'] ?? '',
+                    'wertMA' => $vals['wertMA'] ?? '',
                     'wertAktuell' => $vals['wertAktuell'] ?? '',
                 ];
             }
         }
-        if (empty($relevantWerte)) continue;
+        if (empty($relevantWerte))
+            continue;
 
         $d = $r['datum'];
         if (!isset($byDate[$d])) {
@@ -282,8 +298,10 @@ if ($action === 'history' && $method === 'GET') {
                         $merged[$mid] = $v;
                     } else {
                         // Ergänzen, nicht überschreiben
-                        if (($merged[$mid]['wertMA'] ?? '') === '' && $ma !== '') $merged[$mid]['wertMA'] = $ma;
-                        if (($merged[$mid]['wertAktuell'] ?? '') === '' && $ak !== '') $merged[$mid]['wertAktuell'] = $ak;
+                        if (($merged[$mid]['wertMA'] ?? '') === '' && $ma !== '')
+                            $merged[$mid]['wertMA'] = $ma;
+                        if (($merged[$mid]['wertAktuell'] ?? '') === '' && $ak !== '')
+                            $merged[$mid]['wertAktuell'] = $ak;
                     }
                 }
             }
@@ -301,13 +319,13 @@ if ($action === 'history' && $method === 'GET') {
     }
 
     // Nach Datum sortieren
-    usort($history, function($a, $b) {
+    usort($history, function ($a, $b) {
         return strcmp($a['datum'], $b['datum']);
     });
 
     hp_json_response([
-        'view'     => ['id' => $view['id'], 'name' => $view['name']],
-        'meters'   => $filtered,
+        'view' => ['id' => $view['id'], 'name' => $view['name']],
+        'meters' => $filtered,
         'readings' => $history,
     ]);
 }
@@ -318,28 +336,28 @@ if ($action === 'upload_photo' && $method === 'POST') {
     if (!isset($_FILES['photo']) || $_FILES['photo']['error'] !== UPLOAD_ERR_OK) {
         hp_error_response('Foto-Upload fehlgeschlagen. Error-Code: ' . ($_FILES['photo']['error'] ?? 'unbekannt'));
     }
-    
+
     $readingId = trim($_POST['readingId'] ?? '');
     if (empty($readingId)) {
         hp_error_response('Reading-ID fehlt.');
     }
-    
+
     $uploadsDir = __DIR__ . '/uploads/';
     if (!is_dir($uploadsDir)) {
         mkdir($uploadsDir, 0755, true);
     }
-    
+
     $ext = strtolower(pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION));
     if (!in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
         $ext = 'jpg';
     }
     $filename = $readingId . '.' . $ext;
     $targetPath = $uploadsDir . $filename;
-    
+
     if (!move_uploaded_file($_FILES['photo']['tmp_name'], $targetPath)) {
         hp_error_response('Foto konnte nicht gespeichert werden.');
     }
-    
+
     $readings = hp_read_json(__DIR__ . '/data/readings.json');
     foreach ($readings as &$r) {
         if ($r['id'] === $readingId) {
@@ -349,7 +367,7 @@ if ($action === 'upload_photo' && $method === 'POST') {
     }
     unset($r);
     hp_write_json(__DIR__ . '/data/readings.json', $readings);
-    
+
     hp_json_response(['foto' => 'uploads/' . $filename]);
 }
 

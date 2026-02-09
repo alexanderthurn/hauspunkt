@@ -11,7 +11,7 @@ let readings = [];
 let sortCol = '';
 let sortAsc = true;
 
-const FIELDS = ['haus', 'nr', 'bezeichnung', 'einheit', 'typ', 'faktor', 'stichtag'];
+const FIELDS = ['haus', 'nr', 'bezeichnung', 'einheit', 'typ', 'faktor', 'stichtag', 'aktiv'];
 let dirtyRows = {};    // { nr: { field: newValue, ... } }
 let origNrMap = {};    // { nr: origNr } — tracks if nr itself was changed
 let newRows = [];      // [ { tempId, nr, bezeichnung, ... } ]
@@ -360,17 +360,28 @@ function renderMeters() {
             if (isDel) tr.className = 'del';
             FIELDS.forEach(f => {
                 const td = document.createElement('td');
-                const inp = document.createElement('input');
-                inp.className = 'ii';
-                const defaultVal = f === 'stichtag' ? '31.12' : '';
-                inp.value = (dirtyRows[nr] && dirtyRows[nr][f] !== undefined) ? dirtyRows[nr][f] : (m[f] || defaultVal);
-                inp.dataset.mnr = nr;
-                inp.dataset.f = f;
-                if (f === 'stichtag') inp.placeholder = '31.12';
-                if (isDel) inp.disabled = true;
-                if (dirtyRows[nr] && dirtyRows[nr][f] !== undefined) inp.classList.add('dirty');
-                inp.addEventListener('input', () => onEdit(nr, f, inp.value, m[f]));
-                td.appendChild(inp);
+                const val = (dirtyRows[nr] && dirtyRows[nr][f] !== undefined) ? dirtyRows[nr][f] : (m[f] || (f === 'stichtag' ? '31.12' : (f === 'aktiv' ? '1' : '')));
+
+                if (f === 'aktiv') {
+                    const inp = document.createElement('input');
+                    inp.type = 'checkbox';
+                    inp.checked = val === '1';
+                    inp.disabled = isDel;
+                    inp.addEventListener('change', () => onEdit(nr, f, inp.checked ? '1' : '0', m[f] || '1'));
+                    td.appendChild(inp);
+                    td.style.textAlign = 'center';
+                } else {
+                    const inp = document.createElement('input');
+                    inp.className = 'ii';
+                    inp.value = val;
+                    inp.dataset.mnr = nr;
+                    inp.dataset.f = f;
+                    if (f === 'stichtag') inp.placeholder = '31.12';
+                    if (isDel) inp.disabled = true;
+                    if (dirtyRows[nr] && dirtyRows[nr][f] !== undefined) inp.classList.add('dirty');
+                    inp.addEventListener('input', () => onEdit(nr, f, inp.value, m[f]));
+                    td.appendChild(inp);
+                }
                 tr.appendChild(td);
             });
             const tdA = document.createElement('td');
@@ -393,12 +404,22 @@ function renderMeters() {
             tr.className = 'new';
             FIELDS.forEach(f => {
                 const td = document.createElement('td');
-                const inp = document.createElement('input');
-                inp.className = 'ii';
-                inp.value = row[f] || '';
-                inp.placeholder = f;
-                inp.addEventListener('input', () => { row[f] = inp.value; });
-                td.appendChild(inp);
+                if (f === 'aktiv') {
+                    const inp = document.createElement('input');
+                    inp.type = 'checkbox';
+                    inp.checked = row[f] !== '0'; // default to active
+                    if (row[f] === undefined) row[f] = '1';
+                    inp.addEventListener('change', () => { row[f] = inp.checked ? '1' : '0'; });
+                    td.appendChild(inp);
+                    td.style.textAlign = 'center';
+                } else {
+                    const inp = document.createElement('input');
+                    inp.className = 'ii';
+                    inp.value = row[f] || '';
+                    inp.placeholder = f;
+                    inp.addEventListener('input', () => { row[f] = inp.value; });
+                    td.appendChild(inp);
+                }
                 tr.appendChild(td);
             });
             const tdA = document.createElement('td');
@@ -414,7 +435,12 @@ function renderMeters() {
             const tr = document.createElement('tr');
             FIELDS.forEach(f => {
                 const td = document.createElement('td');
-                td.textContent = f === 'stichtag' ? (m[f] || '31.12') : (m[f] || '');
+                if (f === 'aktiv') {
+                    td.textContent = (m[f] === '0') ? ' Nein' : 'Ja';
+                    td.style.textAlign = 'center';
+                } else {
+                    td.textContent = f === 'stichtag' ? (m[f] || '31.12') : (m[f] || '');
+                }
                 tr.appendChild(td);
             });
             tbody.appendChild(tr);
@@ -1078,6 +1104,15 @@ function renderOverview() {
     const tbody = document.getElementById('ov-body');
     tbody.innerHTML = '';
     sorted.forEach(m => {
+        const hasAnyData = displayCols.some(dc => {
+            const v = mergedValMap[m.nr + '|' + dc.datum];
+            if (!v) return false;
+            const val = (dc.sc === 'M/A' || dc.isGesamt) ? (v.wertMA || '') : (v.wertAktuell || '');
+            return val !== '';
+        });
+        const isActive = m.aktiv !== '0';
+        if (!isActive && !hasAnyData) return;
+
         const tr = document.createElement('tr');
         tr.innerHTML = `<td class="fix-haus">${esc(m.haus)}</td><td class="fix-einheit">${esc(m.einheit)}</td><td class="fix-nr">${esc(m.nr)}</td><td class="fix-bez">${esc(m.bezeichnung)}</td>`;
         displayCols.forEach(dc => {
@@ -1344,7 +1379,16 @@ function getOverviewExportData() {
         });
     }
 
-    const sorted = filtered.slice().sort((a, b) => {
+    const sorted = filtered.slice().filter(m => {
+        const hasAnyData = displayCols.some(dc => {
+            const v = mergedValMap[m.nr + '|' + dc.datum];
+            if (!v) return false;
+            const val = (dc.sc === 'M/A' || dc.isGesamt) ? (v.wertMA || '') : (v.wertAktuell || '');
+            return val !== '';
+        });
+        const isActive = m.aktiv !== '0';
+        return isActive || hasAnyData;
+    }).sort((a, b) => {
         let cmp = (a.haus || '').localeCompare(b.haus || '', 'de');
         if (cmp !== 0) return cmp;
         cmp = (a.einheit || '').localeCompare(b.einheit || '', 'de');
