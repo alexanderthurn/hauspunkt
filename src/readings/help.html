@@ -19,6 +19,11 @@
         }
 
         .hdr {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
             display: flex;
             align-items: center;
             gap: 10px;
@@ -34,7 +39,7 @@
 
         main {
             max-width: 680px;
-            margin: 0 auto;
+            margin: 40px auto 0;
             padding: 16px 12px;
         }
 
@@ -106,13 +111,16 @@
 </head>
 
 <body>
-    <div class="hdr"><a href="#" id="back-link" style="display:flex"><img src="../common/logo.svg" alt="HP"></a>
-        <span>Hilfe</span>
+    <div class="hdr">
+        <a href="#" id="back-link" style="display:flex"><img src="../common/logo.svg" alt="HP"></a>
+        <span style="flex:1">Hilfe</span>
+        <a href="#" id="back-top" style="text-decoration:none;font-weight:bold;font-size:14px">Zurück</a>
     </div>
     <script>
         var name = new URLSearchParams(window.location.search).get('name');
-        if (name) document.getElementById('back-link').href = './?name=' + encodeURIComponent(name);
-        else document.getElementById('back-link').href = './';
+        var url = name ? './?name=' + encodeURIComponent(name) : './';
+        document.getElementById('back-link').href = url;
+        document.getElementById('back-top').href = url;
     </script>
     <main>
         <h1>So tragen Sie Ihre Zählerstände ein</h1>
@@ -138,6 +146,13 @@
         <div class="step">
             <span class="sn">3</span> <strong>Speichern</strong>
             <p>Drücken Sie auf <strong>„Speichern"</strong>. Nur ausgefüllte Felder werden übertragen.</p>
+        </div>
+        <div class="step">
+            <span class="sn">4</span> <strong>Fertigstellung</strong>
+            <p>Exportieren Sie das <strong>PDF</strong>, unterschreiben Sie es (oder lassen es unterschreiben) und laden
+                Sie das unterschriebene Dokument über das <strong>↑ PDF</strong> Symbol oben wieder hoch. Ein grünes
+                <strong>✓ PDF</strong> zeigt den Erfolg an.
+            </p>
         </div>
 
         <h2>Heizung / Heizkostenverteiler</h2>
@@ -174,11 +189,6 @@
                 Ausdrucken. Ausgefüllte Excel-Dateien können auch wieder importiert werden.</p>
         </div>
 
-        <a href="#" id="back-bottom" class="back">← Zurück zur Ablesung</a>
-        <script>
-            var n = new URLSearchParams(window.location.search).get('name');
-            document.getElementById('back-bottom').href = n ? './?name=' + encodeURIComponent(n) : './';
-        </script>
     </main>
 </body>
 

@@ -96,9 +96,13 @@ if ($action === 'load' && $method === 'GET') {
 
     // Dann: Eigene Werte überschreiben (haben Vorrang)
     $notizen = '';
+    $readingId = '';
+    $pdf = '';
     foreach ($readings as $r) {
         if ($r['datum'] === $datum && ($r['viewName'] ?? '') === $name) {
             $notizen = $r['notizen'] ?? '';
+            $readingId = $r['id'] ?? '';
+            $pdf = $r['pdf'] ?? '';
             $werte = $r['werte'] ?? [];
             foreach ($werte as $meterId => $vals) {
                 if (in_array($meterId, $meterNrs)) {
@@ -124,6 +128,8 @@ if ($action === 'load' && $method === 'GET') {
         'view' => ['id' => $view['id'], 'name' => $view['name'], 'editableFrom' => $view['editableFrom'] ?? ''],
         'meters' => $filtered,
         'datum' => $datum,
+        'readingId' => $readingId,
+        'pdf' => $pdf,
         'existing' => $existing,
         'notizen' => $notizen,
         'foreignSources' => $foreignSources,
@@ -207,7 +213,17 @@ if ($action === 'save' && $method === 'POST') {
     }
 
     hp_write_json(__DIR__ . '/data/readings.json', $readings);
-    hp_json_response(['saved' => count($newWerte)]);
+
+    // ID des gespeicherten Eintrags finden für Rückgabe
+    $finalId = '';
+    foreach ($readings as $r) {
+        if ($r['datum'] === $datum && ($r['viewName'] ?? '') === $viewName) {
+            $finalId = $r['id'];
+            break;
+        }
+    }
+
+    hp_json_response(['saved' => count($newWerte), 'id' => $finalId]);
 }
 
 // ── Historie aller Readings für eine Ansicht ─────────────────────
@@ -338,14 +354,14 @@ if ($action === 'history' && $method === 'GET') {
 
 // ── Foto-Upload ──────────────────────────────────────────────────
 
-if ($action === 'upload_photo' && $method === 'POST') {
-    if (!isset($_FILES['photo']) || $_FILES['photo']['error'] !== UPLOAD_ERR_OK) {
-        hp_error_response('Foto-Upload fehlgeschlagen. Error-Code: ' . ($_FILES['photo']['error'] ?? 'unbekannt'));
+if ($action === 'upload_pdf' && $method === 'POST') {
+    if (!isset($_FILES['pdf']) || $_FILES['pdf']['error'] !== UPLOAD_ERR_OK) {
+        hp_error_response('PDF-Upload fehlgeschlagen.');
     }
 
     $readingId = trim($_POST['readingId'] ?? '');
     if (empty($readingId)) {
-        hp_error_response('Reading-ID fehlt.');
+        hp_error_response('Reading-ID fehlt. Bitte zuerst speichern.');
     }
 
     $uploadsDir = __DIR__ . '/uploads/';
@@ -353,28 +369,29 @@ if ($action === 'upload_photo' && $method === 'POST') {
         mkdir($uploadsDir, 0755, true);
     }
 
-    $ext = strtolower(pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION));
-    if (!in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
-        $ext = 'jpg';
-    }
-    $filename = $readingId . '.' . $ext;
+    $filename = 'signed_' . $readingId . '.pdf';
     $targetPath = $uploadsDir . $filename;
 
-    if (!move_uploaded_file($_FILES['photo']['tmp_name'], $targetPath)) {
-        hp_error_response('Foto konnte nicht gespeichert werden.');
+    if (!move_uploaded_file($_FILES['pdf']['tmp_name'], $targetPath)) {
+        hp_error_response('PDF konnte nicht gespeichert werden.');
     }
 
     $readings = hp_read_json(__DIR__ . '/data/readings.json');
+    $found = false;
     foreach ($readings as &$r) {
         if ($r['id'] === $readingId) {
-            $r['foto'] = 'uploads/' . $filename;
+            $r['pdf'] = 'uploads/' . $filename;
+            $found = true;
             break;
         }
     }
     unset($r);
-    hp_write_json(__DIR__ . '/data/readings.json', $readings);
-
-    hp_json_response(['foto' => 'uploads/' . $filename]);
+    if ($found) {
+        hp_write_json(__DIR__ . '/data/readings.json', $readings);
+        hp_json_response(['pdf' => 'uploads/' . $filename]);
+    } else {
+        hp_error_response('Reading nicht gefunden.');
+    }
 }
 
 // Fallback

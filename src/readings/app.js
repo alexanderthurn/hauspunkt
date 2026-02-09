@@ -109,10 +109,20 @@ function render() {
 
     var h = '';
 
-    // Toolbar: Spalten-Toggle + Datum
+    // Toolbar: Spalten-Toggle + Hilfe + PDF + Datum
     h += '<div class="tbar">';
     h += '<span class="chip' + (showMA ? ' sel' : '') + '" onclick="toggleCol(\'ma\')" title="Memory/Stichtag">M/A</span>';
     h += '<span class="chip' + (showAktuell ? ' sel' : '') + '" onclick="toggleCol(\'aktuell\')" title="Ablesewert/Alt-Wert">Aktuell</span>';
+
+    // Hilfe-Knopf
+    var vname = new URLSearchParams(window.location.search).get('name');
+    var helpUrl = 'help.html' + (vname ? '?name=' + encodeURIComponent(vname) : '');
+    h += '<a href="' + helpUrl + '" class="chip" style="text-decoration:none;background:#f0f7ff;border-color:#07c;color:#07c" title="Hilfe öffnen">? Hilfe</a>';
+
+    if (viewData.readingId && viewData.pdf) {
+        h += '<a href="' + esc(viewData.pdf) + '" target="_blank" class="chip" style="background:#e8f5e9;border-color:#4caf50;color:#2e7d32;text-decoration:none" title="Unterschriebenes PDF herunterladen">✓ PDF</a>';
+    }
+
     h += '<span style="flex:1"></span>';
     h += '<input type="date" id="inp-datum" value="' + currentDatum + '" onchange="onDatumChange(this.value)">';
     h += '</div>';
@@ -208,6 +218,8 @@ async function onDatumChange(val) {
         var data = await res.json();
         viewData.existing = data.existing || {};
         viewData.notizen = data.notizen || '';
+        viewData.readingId = data.readingId || '';
+        viewData.pdf = data.pdf || '';
         viewData.foreignSources = data.foreignSources || {};
         viewData.datum = val;
         render();
@@ -273,6 +285,8 @@ async function doSave() {
         // Lokalen state aktualisieren damit Export sofort stimmt
         if (!viewData.existing) viewData.existing = {};
         viewData.notizen = notesText;
+        viewData.readingId = result.id || viewData.readingId;
+
         entries.forEach(function (e) {
             if (!viewData.existing[e.meterId]) viewData.existing[e.meterId] = {};
             viewData.existing[e.meterId].wertMA = e.wertMA;
@@ -280,6 +294,7 @@ async function doSave() {
         });
         toast('✓ ' + (result.saved || 0) + ' Wert(e) gespeichert!', 'ok');
         btn.disabled = false; btn.textContent = 'Speichern';
+        render(); // Erneutes Rendern um Upload-Button anzuzeigen
     } catch (e) {
         toast('Fehler: ' + e.message, 'err');
         btn.disabled = false; btn.textContent = 'Speichern';
@@ -299,13 +314,45 @@ function initBurgerMenu() {
         }
         HPExport.createExportMenu(document.getElementById('burger-wrap'), [
             { label: 'Excel exportieren', icon: '📊', onClick: exportReadingsExcel },
-            { label: 'PDF exportieren', icon: '📕', onClick: exportReadingsPDF },
-            { separator: true },
             { label: 'Excel importieren', icon: '📥', onClick: importReadingsExcel },
             { separator: true },
-            { label: 'Hilfe', icon: '?', onClick: function () { window.location.href = helpUrl; } },
+            { label: 'PDF exportieren', icon: '📕', onClick: exportReadingsPDF },
+            { label: 'Unterschriebenes PDF hochladen', icon: '📤', onClick: doUploadPDF },
         ]);
     });
+}
+
+function doUploadPDF() {
+    if (!viewData.readingId) {
+        toast('Bitte zuerst die Zählerstände speichern.', 'warn');
+        return;
+    }
+    var inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = '.pdf';
+    inp.onchange = async function () {
+        if (!inp.files.length) return;
+        var file = inp.files[0];
+        var fd = new FormData();
+        fd.append('readingId', viewData.readingId);
+        fd.append('pdf', file);
+
+        try {
+            toast('Lade PDF hoch...', 'wait');
+            var res = await fetch(API + '?action=upload_pdf', {
+                method: 'POST',
+                body: fd
+            });
+            if (!res.ok) throw new Error('Upload fehlgeschlagen');
+            var result = await res.json();
+            viewData.pdf = result.pdf;
+            render();
+            toast('✓ PDF hochgeladen.', 'ok');
+        } catch (e) {
+            toast('Fehler: ' + e.message, 'err');
+        }
+    };
+    inp.click();
 }
 
 function getReadingsForExport() {
