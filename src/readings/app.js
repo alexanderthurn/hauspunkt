@@ -176,7 +176,7 @@ function render() {
         h += '<div class="save-bar" style="text-align:center;color:#c62828;padding:8px 12px">Änderungen vor dem ' + esc(efDate) + ' sind gesperrt.</div>';
     } else {
         h += '<div class="save-bar">';
-        h += '<textarea id="notizen" placeholder="Notizen (optional)" style="flex:1;height:40px;padding:8px;border:1px solid #ccc;border-radius:4px;font:inherit;resize:none">' + esc(viewData.notizen || '') + '</textarea>';
+        h += '<textarea id="notizen" placeholder="Notizen (optional)" style="flex:1;padding:8px;border:1px solid #ccc;border-radius:4px;font:inherit;resize:none">' + esc(viewData.notizen || '') + '</textarea>';
         h += '<button class="save-btn" id="btn-save" onclick="doSave()">Speichern</button>';
         h += '</div>';
     }
