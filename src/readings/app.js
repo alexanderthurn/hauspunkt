@@ -164,7 +164,10 @@ function render() {
         var efDate = formatDateDE(viewData.view.editableFrom);
         h += '<div class="save-bar" style="text-align:center;color:#c62828;padding:8px 12px">Änderungen vor dem ' + esc(efDate) + ' sind gesperrt.</div>';
     } else {
-        h += '<div class="save-bar"><button class="save-btn" id="btn-save" onclick="doSave()">Speichern</button></div>';
+        h += '<div class="save-bar">';
+        h += '<textarea id="notizen" placeholder="Notizen (optional)..." style="width:100%;max-width:400px;height:60px;margin-bottom:8px;padding:8px;border:1px solid #ccc;border-radius:4px;font:inherit">' + esc(viewData.notizen || '') + '</textarea><br>';
+        h += '<button class="save-btn" id="btn-save" onclick="doSave()">Speichern</button>';
+        h += '</div>';
     }
 
     document.getElementById('app').innerHTML = h;
@@ -203,6 +206,7 @@ async function onDatumChange(val) {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         var data = await res.json();
         viewData.existing = data.existing || {};
+        viewData.notizen = data.notizen || '';
         viewData.foreignSources = data.foreignSources || {};
         viewData.datum = val;
         render();
@@ -256,16 +260,18 @@ async function doSave() {
     if (!entries.length) { toast('Mindestens einen Wert eingeben.', 'warn'); return; }
 
     var btn = document.getElementById('btn-save');
+    var notesText = document.getElementById('notizen') ? document.getElementById('notizen').value.trim() : '';
     btn.disabled = true; btn.textContent = 'Speichere…';
     try {
         var res = await fetch(API + '?action=save', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ datum: currentDatum, viewName: viewData.view.name, entries: entries }),
+            body: JSON.stringify({ datum: currentDatum, viewName: viewData.view.name, entries: entries, notizen: notesText }),
         });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         var result = await res.json();
         // Lokalen state aktualisieren damit Export sofort stimmt
         if (!viewData.existing) viewData.existing = {};
+        viewData.notizen = notesText;
         entries.forEach(function (e) {
             if (!viewData.existing[e.meterId]) viewData.existing[e.meterId] = {};
             viewData.existing[e.meterId].wertMA = e.wertMA;
@@ -353,54 +359,70 @@ function exportReadingsExcel() {
 
 function exportReadingsPDF() {
     var data = getReadingsForExport();
-    // PDF: kein Haus (Haus wird als Gruppenheader dargestellt)
-    // Spalten: Einheit, Nr, Bezeichnung, Typ, dann 4x (Datum/M/A/Aktuell)
+    // PDF: Einheit, Nr, Bezeichnung, Typ, Stichtag, M/A, Aktuell
     var head = ['Einheit', 'Nr.', 'Bezeichnung', 'Typ', 'Sticht.'];
-    var numColsPerRow = (showMA ? 1 : 0) + (showAktuell ? 1 : 0);
-    for (var i = 1; i <= NUM_READING_COLS; i++) {
-        if (showMA) head.push('Datum ' + i + '\nM/A');
-        if (showAktuell) head.push('Datum ' + i + '\nAktuell');
-    }
+    if (showMA) head.push('M/A');
+    if (showAktuell) head.push('Aktuell');
 
-    // Gruppierte Darstellung
     var body = [];
     var lastHaus = null;
+    var numMAColumns = (showMA ? 1 : 0) + (showAktuell ? 1 : 0);
+
     data.meters.forEach(function (m) {
         if (m.haus !== lastHaus) {
-            // Gruppenzeile für Haus
-            var groupRow = [{ content: m.haus || 'Ohne Haus', colSpan: 5 + NUM_READING_COLS * numColsPerRow, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } }];
-            body.push(groupRow);
+            body.push([{ content: m.haus || 'Ohne Haus', colSpan: 5 + numMAColumns, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } }]);
             lastHaus = m.haus;
         }
         var ex = data.existing[m.nr] || {};
         var row = [m.einheit, m.nr, m.bezeichnung, m.typ, m.stichtag || '31.12'];
-        // Erste Ablesung vorbelegen
         if (showMA) row.push(ex.wertMA || '');
         if (showAktuell) row.push(ex.wertAktuell || '');
-        // Restliche leer
-        for (var i = 2; i <= NUM_READING_COLS; i++) {
-            if (showMA) row.push('');
-            if (showAktuell) row.push('');
-        }
         body.push(row);
     });
 
-    // Datum-Zeile als Zusatzinfo
-    var datumHeaders = ['', '', '', '', ''];
-    for (var i = 1; i <= NUM_READING_COLS; i++) {
-        var dText = (i === 1) ? formatDateDE(currentDatum) : '___.___.______';
-        if (showMA) datumHeaders.push(dText);
-        if (showAktuell) datumHeaders.push(dText);
-    }
-    body.unshift(datumHeaders);
-
     HPExport.exportPDF({
         title: 'Ablesung – ' + viewData.view.name,
-        subtitle: data.meters.length + ' Zähler – ' + NUM_READING_COLS + ' Ablesungen möglich',
+        subtitle: data.meters.length + ' Zähler',
         head: head,
         body: body,
         filename: 'ablesung_' + viewData.view.name + '.pdf',
-        orientation: 'landscape'
+        orientation: 'landscape',
+        afterDraw: function (doc, finalY, pageW) {
+            var y = finalY + 10;
+            if (y > doc.internal.pageSize.getHeight() - 60) { doc.addPage(); y = 20; }
+
+            doc.setFont(undefined, 'bold');
+            doc.setFontSize(10);
+            doc.text('Bestätigung', 10, y);
+            doc.setFont(undefined, 'normal');
+            doc.setFontSize(9);
+            y += 6;
+
+            var hasData = Object.keys(data.existing).length > 0;
+            var datumStr = hasData ? formatDateDE(currentDatum) : '...................................';
+            doc.text('Die Zählerstände wurden abgelesen am: ' + datumStr + ' durch: .................................................', 10, y);
+            y += 6;
+            doc.text('Die Richtigkeit wurde bestätigt durch (Nutzer): ................................................................................', 10, y);
+
+            y += 10;
+            doc.setFont(undefined, 'bold');
+            doc.text('Notizen', 10, y);
+            doc.setFont(undefined, 'normal');
+            y += 6;
+
+            var userNotes = (document.getElementById('notizen') ? document.getElementById('notizen').value : (viewData.notizen || '')).trim();
+            if (userNotes) {
+                var splitNotes = doc.splitTextToSize(userNotes, pageW - 20);
+                doc.text(splitNotes, 10, y);
+                y += splitNotes.length * 4 + 2;
+            }
+
+            doc.setDrawColor(220);
+            for (var i = 0; i < 3; i++) {
+                doc.line(10, y, pageW - 10, y);
+                y += 6;
+            }
+        }
     });
     toast('PDF exportiert.', 'ok');
 }

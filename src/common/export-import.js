@@ -143,7 +143,7 @@ const HPExport = {
             headStyles: { fillColor: [240, 240, 240], textColor: [40, 40, 40], fontStyle: 'bold', lineWidth: 0.1 },
             alternateRowStyles: { fillColor: [250, 250, 250] },
             margin: { left: 10, right: 10 },
-            didDrawPage: function(data) {
+            didDrawPage: function (data) {
                 // Footer
                 doc.setFontSize(7);
                 doc.setTextColor(150);
@@ -151,6 +151,10 @@ const HPExport = {
                 doc.text('Seite ' + doc.internal.getNumberOfPages(), pageW - 10, doc.internal.pageSize.getHeight() - 5, { align: 'right' });
             }
         });
+
+        if (typeof config.afterDraw === 'function') {
+            config.afterDraw(doc, doc.lastAutoTable.finalY, pageW);
+        }
 
         doc.save(config.filename || 'export.pdf');
     },
@@ -293,7 +297,7 @@ const HPExport = {
         const pageOpts = config.orientation === 'landscape'
             ? { size: [841.89, 595.28] } // A4 landscape in points
             : { size: [595.28, 841.89] }; // A4 portrait in points
-        
+
         const marginL = 30;
         const marginR = 30;
         const marginTop = 40;
@@ -401,7 +405,7 @@ const HPExport = {
         const doc = await PDFDocument.load(arrayBuffer);
         const form = doc.getForm();
         const fields = form.getFields();
-        
+
         const result = { meta: {}, values: {} };
         fields.forEach(field => {
             const name = field.getName();

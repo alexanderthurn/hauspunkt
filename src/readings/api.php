@@ -95,8 +95,10 @@ if ($action === 'load' && $method === 'GET') {
     }
 
     // Dann: Eigene Werte überschreiben (haben Vorrang)
+    $notizen = '';
     foreach ($readings as $r) {
         if ($r['datum'] === $datum && ($r['viewName'] ?? '') === $name) {
+            $notizen = $r['notizen'] ?? '';
             $werte = $r['werte'] ?? [];
             foreach ($werte as $meterId => $vals) {
                 if (in_array($meterId, $meterNrs)) {
@@ -123,6 +125,7 @@ if ($action === 'load' && $method === 'GET') {
         'meters' => $filtered,
         'datum' => $datum,
         'existing' => $existing,
+        'notizen' => $notizen,
         'foreignSources' => $foreignSources,
     ]);
 }
@@ -140,6 +143,7 @@ if ($action === 'save' && $method === 'POST') {
     $entries = $body['entries'] ?? [];
     $datum = (string) ($body['datum'] ?? date('Y-m-d'));
     $viewName = (string) ($body['viewName'] ?? '');
+    $notizen = (string) ($body['notizen'] ?? '');
     $zeitstempel = date('Y-m-d\TH:i:s');
 
     // Prüfung: editableFrom – Datum darf nicht vor dem erlaubten Zeitraum liegen
@@ -183,6 +187,7 @@ if ($action === 'save' && $method === 'POST') {
             foreach ($newWerte as $mid => $vals) {
                 $r['werte'][$mid] = $vals;
             }
+            $r['notizen'] = $notizen;
             $r['zeitstempel'] = $zeitstempel;
             $found = true;
             break;
@@ -195,6 +200,7 @@ if ($action === 'save' && $method === 'POST') {
             'id' => hp_generate_id('r'),
             'datum' => $datum,
             'viewName' => $viewName,
+            'notizen' => $notizen,
             'zeitstempel' => $zeitstempel,
             'werte' => $newWerte,
         ];
