@@ -264,6 +264,13 @@ async function doSave() {
         });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         var result = await res.json();
+        // Lokalen state aktualisieren damit Export sofort stimmt
+        if (!viewData.existing) viewData.existing = {};
+        entries.forEach(function (e) {
+            if (!viewData.existing[e.meterId]) viewData.existing[e.meterId] = {};
+            viewData.existing[e.meterId].wertMA = e.wertMA;
+            viewData.existing[e.meterId].wertAktuell = e.wertAktuell;
+        });
         toast('✓ ' + (result.saved || 0) + ' Wert(e) gespeichert!', 'ok');
         btn.disabled = false; btn.textContent = 'Speichern';
     } catch (e) {
@@ -304,7 +311,7 @@ function getReadingsForExport() {
         if (cmp !== 0) return cmp;
         return (a.bezeichnung || '').localeCompare(b.bezeichnung || '', 'de');
     });
-    return { meters: sorted, existing: existing };
+    return { meters: sorted, existing: viewData.existing || {} };
 }
 
 // Anzahl Ablesungs-Spalten für wiederverwendbare Formulare
@@ -312,11 +319,16 @@ var NUM_READING_COLS = 4;
 
 function exportReadingsCSV() {
     var data = getReadingsForExport();
-    var header = ['Haus', 'Einheit', 'Nr', 'Bezeichnung', 'Typ', 'Stichtag', 'Datum', 'M/A', 'Aktuell'];
+    var header = ['Haus', 'Einheit', 'Nr', 'Bezeichnung', 'Typ', 'Stichtag', 'Datum'];
+    if (showMA) header.push('M/A');
+    if (showAktuell) header.push('Aktuell');
     var rows = [header];
     data.meters.forEach(function (m) {
         var ex = data.existing[m.nr] || {};
-        rows.push([m.haus, m.einheit, m.nr, m.bezeichnung, m.typ, m.stichtag || '31.12', currentDatum, ex.wertMA || '', ex.wertAktuell || '']);
+        var row = [m.haus, m.einheit, m.nr, m.bezeichnung, m.typ, m.stichtag || '31.12', formatDateDE(currentDatum)];
+        if (showMA) row.push(ex.wertMA || '');
+        if (showAktuell) row.push(ex.wertAktuell || '');
+        rows.push(row);
     });
     HPExport.exportCSV(rows, 'ablesung_' + viewData.view.name + '_' + currentDatum + '.csv');
     toast('CSV exportiert.', 'ok');
@@ -324,11 +336,16 @@ function exportReadingsCSV() {
 
 function exportReadingsExcel() {
     var data = getReadingsForExport();
-    var header = ['Haus', 'Einheit', 'Nr', 'Bezeichnung', 'Typ', 'Stichtag', 'Datum', 'M/A', 'Aktuell'];
+    var header = ['Haus', 'Einheit', 'Nr', 'Bezeichnung', 'Typ', 'Stichtag', 'Datum'];
+    if (showMA) header.push('M/A');
+    if (showAktuell) header.push('Aktuell');
     var rows = [header];
     data.meters.forEach(function (m) {
         var ex = data.existing[m.nr] || {};
-        rows.push([m.haus, m.einheit, m.nr, m.bezeichnung, m.typ, m.stichtag || '31.12', currentDatum, ex.wertMA || '', ex.wertAktuell || '']);
+        var row = [m.haus, m.einheit, m.nr, m.bezeichnung, m.typ, m.stichtag || '31.12', formatDateDE(currentDatum)];
+        if (showMA) row.push(ex.wertMA || '');
+        if (showAktuell) row.push(ex.wertAktuell || '');
+        rows.push(row);
     });
     HPExport.exportExcel(rows, 'ablesung_' + viewData.view.name + '_' + currentDatum + '.xlsx', 'Ablesung');
     toast('Excel exportiert.', 'ok');
@@ -339,9 +356,10 @@ function exportReadingsPDF() {
     // PDF: kein Haus (Haus wird als Gruppenheader dargestellt)
     // Spalten: Einheit, Nr, Bezeichnung, Typ, dann 4x (Datum/M/A/Aktuell)
     var head = ['Einheit', 'Nr.', 'Bezeichnung', 'Typ', 'Sticht.'];
+    var numColsPerRow = (showMA ? 1 : 0) + (showAktuell ? 1 : 0);
     for (var i = 1; i <= NUM_READING_COLS; i++) {
-        head.push('Datum ' + i + '\nM/A');
-        head.push('Datum ' + i + '\nAktuell');
+        if (showMA) head.push('Datum ' + i + '\nM/A');
+        if (showAktuell) head.push('Datum ' + i + '\nAktuell');
     }
 
     // Gruppierte Darstellung
@@ -350,17 +368,19 @@ function exportReadingsPDF() {
     data.meters.forEach(function (m) {
         if (m.haus !== lastHaus) {
             // Gruppenzeile für Haus
-            var groupRow = [{ content: m.haus || 'Ohne Haus', colSpan: 5 + NUM_READING_COLS * 2, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } }];
+            var groupRow = [{ content: m.haus || 'Ohne Haus', colSpan: 5 + NUM_READING_COLS * numColsPerRow, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } }];
             body.push(groupRow);
             lastHaus = m.haus;
         }
         var ex = data.existing[m.nr] || {};
         var row = [m.einheit, m.nr, m.bezeichnung, m.typ, m.stichtag || '31.12'];
         // Erste Ablesung vorbelegen
-        row.push(ex.wertMA || '', ex.wertAktuell || '');
+        if (showMA) row.push(ex.wertMA || '');
+        if (showAktuell) row.push(ex.wertAktuell || '');
         // Restliche leer
         for (var i = 2; i <= NUM_READING_COLS; i++) {
-            row.push('', '');
+            if (showMA) row.push('');
+            if (showAktuell) row.push('');
         }
         body.push(row);
     });
@@ -368,11 +388,9 @@ function exportReadingsPDF() {
     // Datum-Zeile als Zusatzinfo
     var datumHeaders = ['', '', '', '', ''];
     for (var i = 1; i <= NUM_READING_COLS; i++) {
-        if (i === 1) {
-            datumHeaders.push(formatDateDE(currentDatum), '');
-        } else {
-            datumHeaders.push('___.___.______', '');
-        }
+        var dText = (i === 1) ? formatDateDE(currentDatum) : '___.___.______';
+        if (showMA) datumHeaders.push(dText);
+        if (showAktuell) datumHeaders.push(dText);
     }
     body.unshift(datumHeaders);
 
