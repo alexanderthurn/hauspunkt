@@ -205,6 +205,7 @@ function refreshFilters() {
     const t = [...new Set(meters.map(m => m.typ).filter(Boolean))].sort();
     fillSimpleSel('#f-haus', h); mselSetOptions('f-einheit', e); mselSetOptions('f-typ', t);
     fillSimpleSel('#of-haus', h); mselSetOptions('of-einheit', e); mselSetOptions('of-typ', t);
+    mselSetOptions('of-werte', ['M/A', 'Aktuell', 'M/A Gesamt']);
 }
 
 function fillSimpleSel(sel, opts) {
@@ -300,6 +301,9 @@ function syncFiltersToUrl() {
     // Jahr-Filter
     const jahr = getSelectedYear();
     if (jahr) params.set('jahr', jahr); else params.delete('jahr');
+    // Werte-Filter
+    const werte = getSelVals(document.getElementById('of-werte'));
+    if (werte.length) params.set('werte', werte.join(',')); else params.delete('werte');
     params.delete('von'); params.delete('bis');
     const qs = params.toString();
     const newUrl = window.location.pathname + (qs ? '?' + qs : '');
@@ -317,6 +321,8 @@ function loadFiltersFromUrl() {
     setSelVals(document.getElementById('of-haus'), haus);
     setSelVals(document.getElementById('of-einheit'), einheit);
     setSelVals(document.getElementById('of-typ'), typ);
+    const werte = (params.get('werte') || '').split(',').filter(Boolean);
+    setSelVals(document.getElementById('of-werte'), werte);
     // Jahr-Filter (wird in refreshYearFilter via URL gesetzt)
 }
 
@@ -851,6 +857,7 @@ function initOverviewEvents() {
     document.getElementById('of-haus').addEventListener('change', ovFilterChange);
     mselInit('of-einheit', ovFilterChange);
     mselInit('of-typ', ovFilterChange);
+    mselInit('of-werte', ovFilterChange);
     document.getElementById('of-jahr').addEventListener('change', () => { syncFiltersToUrl(); renderOverview(); });
 }
 
@@ -898,6 +905,8 @@ function renderOverview() {
     const typ = getSelVals(document.getElementById('of-typ'));
     const filtered = getFiltered(haus, einheit, typ);
     const filteredIds = new Set(filtered.map(m => m.nr));
+    const showWerte = getSelVals(document.getElementById('of-werte'));
+    const isWerteSel = showWerte.length > 0;
 
     const jahr = getSelectedYear();
 
@@ -961,17 +970,39 @@ function renderOverview() {
         });
     });
 
+    // M/A Gesamt Logik
+    if (!isWerteSel || showWerte.includes('M/A Gesamt')) {
+        const latestMA = {};
+        readings.forEach(r => {
+            const d = r.datum;
+            Object.entries(r.werte || {}).forEach(([mid, vals]) => {
+                if (!filteredIds.has(mid)) return;
+                const ma = vals.wertMA || '';
+                if (ma && (!latestMA[mid] || d > latestMA[mid].datum)) latestMA[mid] = { val: ma, datum: d };
+            });
+        });
+        Object.entries(latestMA).forEach(([mid, data]) => {
+            mergedValMap[mid + '|GESAMT'] = { wertMA: data.val, wertAktuell: '', maConflict: false, akConflict: false };
+        });
+    }
+
     // Schritt 3: Display-Spalten (pro Datum, nicht pro datum+viewName)
     const displayCols = [];
     datumList.forEach(dObj => {
         const info = datumSubMap[dObj.datum] || {};
         let first = true;
-        if (info.hasMA) { displayCols.push({ ...dObj, sc: 'M/A', isFirst: first }); first = false; }
-        if (info.hasAk) { displayCols.push({ ...dObj, sc: 'Aktuell', isFirst: first }); first = false; }
+        const sMA = !isWerteSel || showWerte.includes('M/A');
+        const sAk = !isWerteSel || showWerte.includes('Aktuell');
+        if (info.hasMA && sMA) { displayCols.push({ ...dObj, sc: 'M/A', isFirst: first }); first = false; }
+        if (info.hasAk && sAk) { displayCols.push({ ...dObj, sc: 'Aktuell', isFirst: first }); first = false; }
     });
 
+    if (!isWerteSel || showWerte.includes('M/A Gesamt')) {
+        displayCols.unshift({ datum: 'GESAMT', sc: 'M/A Gesamt', isFirst: true, isGesamt: true, viewNames: [], ids: [] });
+    }
+
     if (displayCols.length === 0) {
-        displayCols.push({ isPlaceholder: true, sc: 'Keine Daten vorhanden' });
+        displayCols.push({ isPlaceholder: true, sc: 'Keine Daten vorhanden', viewNames: [], ids: [] });
     }
 
     // Schritt 4: Header rendern
@@ -988,7 +1019,7 @@ function renderOverview() {
             return;
         }
         th.style.cursor = 'default';
-        let dateStr = HP.formatDate(dc.datum);
+        let dateStr = dc.isGesamt ? 'Aktuellster' : HP.formatDate(dc.datum);
 
         // Header: Datum + jeder viewName einzeln als Link
         let headerParts = dateStr;
@@ -1042,7 +1073,7 @@ function renderOverview() {
             }
             const v = mergedValMap[m.nr + '|' + dc.datum];
             if (v) {
-                const val = dc.sc === 'M/A' ? (v.wertMA || '') : (v.wertAktuell || '');
+                const val = (dc.sc === 'M/A' || dc.isGesamt) ? (v.wertMA || '') : (v.wertAktuell || '');
                 const isConflict = dc.sc === 'M/A' ? v.maConflict : v.akConflict;
                 td.textContent = val;
                 if (isConflict) {
@@ -1203,6 +1234,8 @@ function getOverviewExportData() {
     const typ = getSelVals(document.getElementById('of-typ'));
     const filtered = getFiltered(haus, einheit, typ);
     const filteredIds = new Set(filtered.map(m => m.nr));
+    const showWerte = getSelVals(document.getElementById('of-werte'));
+    const isWerteSel = showWerte.length > 0;
     const jahr = getSelectedYear();
 
     // Gleiche Merge-Logik wie renderOverview
@@ -1251,13 +1284,34 @@ function getOverviewExportData() {
         });
     });
 
+    if (!isWerteSel || showWerte.includes('M/A Gesamt')) {
+        const latestMA = {};
+        readings.forEach(r => {
+            const d = r.datum;
+            Object.entries(r.werte || {}).forEach(([mid, vals]) => {
+                if (!filteredIds.has(mid)) return;
+                const ma = vals.wertMA || '';
+                if (ma && (!latestMA[mid] || d > latestMA[mid].datum)) latestMA[mid] = { val: ma, datum: d };
+            });
+        });
+        Object.entries(latestMA).forEach(([mid, data]) => {
+            mergedValMap[mid + '|GESAMT'] = { wertMA: data.val, wertAktuell: '', maConflict: false, akConflict: false };
+        });
+    }
+
     const displayCols = [];
     datumList.forEach(dObj => {
         const info = datumSubMap[dObj.datum] || {};
         let first = true;
-        if (info.hasMA) { displayCols.push({ ...dObj, sc: 'M/A', isFirst: first }); first = false; }
-        if (info.hasAk) { displayCols.push({ ...dObj, sc: 'Aktuell', isFirst: first }); first = false; }
+        const sMA = !isWerteSel || showWerte.includes('M/A');
+        const sAk = !isWerteSel || showWerte.includes('Aktuell');
+        if (info.hasMA && sMA) { displayCols.push({ ...dObj, sc: 'M/A', isFirst: first }); first = false; }
+        if (info.hasAk && sAk) { displayCols.push({ ...dObj, sc: 'Aktuell', isFirst: first }); first = false; }
     });
+
+    if (!isWerteSel || showWerte.includes('M/A Gesamt')) {
+        displayCols.unshift({ datum: 'GESAMT', sc: 'M/A Gesamt', isFirst: true, isGesamt: true, viewNames: [], ids: [] });
+    }
 
     const sorted = filtered.slice().sort((a, b) => {
         let cmp = (a.haus || '').localeCompare(b.haus || '', 'de');
@@ -1274,14 +1328,14 @@ function exportOverviewCSV() {
     const { sorted, displayCols, mergedValMap } = getOverviewExportData();
     const header = ['Haus', 'Einheit', 'Nr.', 'Bezeichnung', 'Typ', 'Faktor', 'Stichtag'];
     displayCols.forEach(dc => {
-        header.push(HP.formatDate(dc.datum) + (dc.viewNames.length ? ' ' + dc.viewNames.join(' ') : '') + ' ' + dc.sc);
+        header.push((dc.isGesamt ? 'Aktuellster' : HP.formatDate(dc.datum)) + (dc.viewNames.length ? ' ' + dc.viewNames.join(' ') : '') + ' ' + dc.sc);
     });
     const rows = [header];
     sorted.forEach(m => {
         const row = [m.haus, m.einheit, m.nr, m.bezeichnung, m.typ, m.faktor || '', m.stichtag || '31.12'];
         displayCols.forEach(dc => {
             const v = mergedValMap[m.nr + '|' + dc.datum];
-            row.push(v ? (dc.sc === 'M/A' ? (v.wertMA || '') : (v.wertAktuell || '')) : '');
+            row.push(v ? ((dc.sc === 'M/A' || dc.isGesamt) ? (v.wertMA || '') : (v.wertAktuell || '')) : '');
         });
         rows.push(row);
     });
@@ -1293,14 +1347,14 @@ function exportOverviewExcel() {
     const { sorted, displayCols, mergedValMap } = getOverviewExportData();
     const header = ['Haus', 'Einheit', 'Nr.', 'Bezeichnung', 'Typ', 'Faktor', 'Stichtag'];
     displayCols.forEach(dc => {
-        header.push(HP.formatDate(dc.datum) + (dc.viewNames.length ? ' ' + dc.viewNames.join(' ') : '') + ' ' + dc.sc);
+        header.push((dc.isGesamt ? 'Aktuellster' : HP.formatDate(dc.datum)) + (dc.viewNames.length ? ' ' + dc.viewNames.join(' ') : '') + ' ' + dc.sc);
     });
     const rows = [header];
     sorted.forEach(m => {
         const row = [m.haus, m.einheit, m.nr, m.bezeichnung, m.typ, m.faktor || '', m.stichtag || '31.12'];
         displayCols.forEach(dc => {
             const v = mergedValMap[m.nr + '|' + dc.datum];
-            row.push(v ? (dc.sc === 'M/A' ? (v.wertMA || '') : (v.wertAktuell || '')) : '');
+            row.push(v ? ((dc.sc === 'M/A' || dc.isGesamt) ? (v.wertMA || '') : (v.wertAktuell || '')) : '');
         });
         rows.push(row);
     });
@@ -1312,13 +1366,14 @@ function exportOverviewPDF() {
     const { sorted, displayCols, mergedValMap } = getOverviewExportData();
     const head = ['Haus', 'Einheit', 'Nr.', 'Bez.', 'Typ', 'Fkt.', 'Sticht.'];
     displayCols.forEach(dc => {
-        head.push(HP.formatDate(dc.datum) + (dc.viewNames.length ? '\n' + dc.viewNames.join(' ') : '') + '\n' + dc.sc);
+        const dStr = dc.isGesamt ? 'Aktuellster' : HP.formatDate(dc.datum);
+        head.push(dStr + (dc.viewNames.length ? '\n' + dc.viewNames.join(' ') : '') + '\n' + dc.sc);
     });
     const body = sorted.map(m => {
         const row = [m.haus, m.einheit, m.nr, m.bezeichnung, m.typ, m.faktor || '', m.stichtag || '31.12'];
         displayCols.forEach(dc => {
             const v = mergedValMap[m.nr + '|' + dc.datum];
-            row.push(v ? (dc.sc === 'M/A' ? (v.wertMA || '') : (v.wertAktuell || '')) : '');
+            row.push(v ? ((dc.sc === 'M/A' || dc.isGesamt) ? (v.wertMA || '') : (v.wertAktuell || '')) : '');
         });
         return row;
     });
