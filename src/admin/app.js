@@ -256,19 +256,13 @@ function initMeterEvents() {
     document.getElementById('f-haus').addEventListener('change', meterFilterChange);
     mselInit('f-einheit', meterFilterChange);
     mselInit('f-typ', meterFilterChange);
-    document.getElementById('btn-qv').addEventListener('click', createViewFromFilter);
-    document.getElementById('btn-to-overview').addEventListener('click', () => switchTab('overview'));
-    document.getElementById('qv-name').addEventListener('input', function () { this.dataset.edited = this.value ? '1' : ''; });
+
     document.getElementById('btn-delete-filtered').addEventListener('click', deleteFilteredMeters);
-    document.getElementById('btn-qv-start').addEventListener('click', () => {
-        document.getElementById('btn-qv-start').style.display = 'none';
-        document.getElementById('qv-form').style.display = '';
-        document.getElementById('qv-name').focus();
-    });
-    document.getElementById('btn-qv-cancel').addEventListener('click', () => {
-        document.getElementById('qv-form').style.display = 'none';
-        document.getElementById('btn-qv-start').style.display = '';
-    });
+    document.getElementById('btn-import-csv').addEventListener('click', importMetersCSV);
+    document.getElementById('btn-import-excel').addEventListener('click', importMetersExcel);
+    document.getElementById('btn-import-ista').addEventListener('click', importISTACSV);
+
+    document.getElementById('qv-name-placeholder')?.remove(); // Cleanup if exists
     document.getElementById('m-head').addEventListener('click', e => {
         const th = e.target.closest('th[data-sort]');
         if (!th) return;
@@ -555,49 +549,75 @@ function updateQuickViewInfo() {
     if (einheit.length) parts.push(einheit.join(', '));
     if (typ.length) parts.push(typ.join(', '));
     const desc = parts.length ? parts.join(' / ') : 'Alle';
-    document.getElementById('qv-info').textContent = desc + ' — ' + count + ' Zähler';
-
-    const nameInp = document.getElementById('qv-name');
-    if (!nameInp.dataset.edited) {
-        nameInp.value = parts.join(' - ') || '';
-    }
+    const qvInfo = document.getElementById('qv-info');
+    if (qvInfo) qvInfo.textContent = desc + ' — ' + count + ' Zähler';
 }
 
-async function createViewFromFilter() {
-    const name = document.getElementById('qv-name').value.trim();
-    if (!name) { toast('Bitte einen Namen eingeben.', 'warn'); document.getElementById('qv-name').focus(); return; }
-
+function showCreateViewModal() {
     const haus = getSelVals(document.getElementById('f-haus'));
     const einheit = getSelVals(document.getElementById('f-einheit'));
     const typ = getSelVals(document.getElementById('f-typ'));
 
-    const data = {
-        id: '',
-        token: '',
-        name: name,
-        filter: {
-            haus: haus.length === 1 ? haus[0] : '',
-            einheit: einheit,
-            typ: typ.length === 1 ? typ[0] : '',
-        },
-    };
+    const parts = [];
+    if (haus.length) parts.push(haus.join(', '));
+    if (einheit.length) parts.push(einheit.join(', '));
+    if (typ.length) parts.push(typ.join(', '));
+    const defName = parts.join(' - ') || '';
 
-    const btn = document.getElementById('btn-qv');
-    btn.disabled = true;
-    try {
-        await HP.api(API + '?action=view_save', { method: 'POST', body: data });
-        document.getElementById('qv-name').value = '';
-        document.getElementById('qv-name').dataset.edited = '';
-        document.getElementById('qv-form').style.display = 'none';
-        document.getElementById('btn-qv-start').style.display = '';
-        await loadAll();
-        toast('Ansicht "' + name + '" erstellt.', 'ok');
-        switchTab('views');
-    } catch (e) {
-        toast('Fehler: ' + e.message, 'err');
-    } finally {
-        btn.disabled = false;
-    }
+    const ov = document.createElement('div');
+    ov.className = 'modal-ov';
+    const c = document.createElement('div');
+    c.className = 'modal-c';
+
+    let html = `<h3>Ableser anlegen</h3>`;
+    html += `<p style="font-size:13px;color:#666;margin-bottom:12px">Diese Ansicht wird für die aktuellen Filter erstellt.</p>`;
+    html += `<div class="f-row"><label>Name des Ablesers</label><input type="text" id="modal-qv-name" value="${esc(defName)}" placeholder="z.B. Meschede EG" style="width:100%"></div>`;
+    html += `<div style="display:flex;gap:6px;justify-content:flex-end;margin-top:15px">
+        <button class="b" id="modal-qv-cancel">Abbrechen</button>
+        <button class="b b-ok" id="modal-qv-run">Anlegen</button>
+    </div>`;
+
+    c.innerHTML = html;
+    ov.appendChild(c);
+    document.body.appendChild(ov);
+
+    const inp = c.querySelector('#modal-qv-name');
+    inp.focus();
+
+    c.querySelector('#modal-qv-cancel').onclick = () => ov.remove();
+    c.querySelector('#modal-qv-run').onclick = async () => {
+        const name = inp.value.trim();
+        if (!name) { toast('Bitte einen Namen eingeben.', 'warn'); inp.focus(); return; }
+
+        const haus = getSelVals(document.getElementById('f-haus'));
+        const einheit = getSelVals(document.getElementById('f-einheit'));
+        const typ = getSelVals(document.getElementById('f-typ'));
+
+        const data = {
+            id: '',
+            token: '',
+            name: name,
+            filter: {
+                haus: haus.length === 1 ? haus[0] : '',
+                einheit: einheit,
+                typ: typ.length === 1 ? typ[0] : '',
+            },
+        };
+
+        const btn = c.querySelector('#modal-qv-run');
+        btn.disabled = true;
+        try {
+            await HP.api(API + '?action=view_save', { method: 'POST', body: data });
+            ov.remove();
+            await loadAll();
+            toast('Ansicht "' + name + '" erstellt.', 'ok');
+            switchTab('views');
+        } catch (e) {
+            toast('Fehler: ' + e.message, 'err');
+        } finally {
+            btn.disabled = false;
+        }
+    };
 }
 
 function switchTab(tabName) {
@@ -1061,13 +1081,11 @@ function initMeterMenu() {
         HPExport.createExportMenu(this, [
             { label: editMode ? 'Bearbeiten beenden' : 'Bearbeiten', icon: '✏️', onClick: function () { setEditMode(!editMode); } },
             { separator: true },
-            { label: 'CSV exportieren', icon: '📄', onClick: exportMetersCSV },
-            { label: 'Excel exportieren', icon: '📊', onClick: exportMetersExcel },
+            { label: 'Dafür Messwerte anzeigen', icon: '📊', onClick: () => switchTab('overview') },
+            { label: 'Dafür Ableser anlegen', icon: '👤', onClick: showCreateViewModal },
             { separator: true },
-            { label: 'CSV importieren', icon: '📥', onClick: importMetersCSV },
-            { label: 'Excel importieren', icon: '📥', onClick: importMetersExcel },
-            { separator: true },
-            { label: 'ISTA Import', icon: '🏢', onClick: importISTACSV },
+            { label: 'Dafür CSV exportieren', icon: '📄', onClick: exportMetersCSV },
+            { label: 'Dafür Excel exportieren', icon: '📊', onClick: exportMetersExcel },
         ]);
     });
 }
