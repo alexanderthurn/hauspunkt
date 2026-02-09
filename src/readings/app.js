@@ -111,8 +111,8 @@ function render() {
 
     // Toolbar: Spalten-Toggle + Datum
     h += '<div class="tbar">';
-    h += '<span class="chip' + (showMA ? ' sel' : '') + '" onclick="toggleCol(\'ma\')">M/A</span>';
-    h += '<span class="chip' + (showAktuell ? ' sel' : '') + '" onclick="toggleCol(\'aktuell\')">Aktuell</span>';
+    h += '<span class="chip' + (showMA ? ' sel' : '') + '" onclick="toggleCol(\'ma\')" title="Memory/Stichtag">M/A</span>';
+    h += '<span class="chip' + (showAktuell ? ' sel' : '') + '" onclick="toggleCol(\'aktuell\')" title="Ablesewert/Alt-Wert">Aktuell</span>';
     h += '<span style="flex:1"></span>';
     h += '<input type="date" id="inp-datum" value="' + currentDatum + '" onchange="onDatumChange(this.value)">';
     h += '</div>';
@@ -124,8 +124,8 @@ function render() {
     h += '<th>Bezeichnung</th>';
     h += '<th>Nr.</th>';
     h += '<th class="col-desk">Typ</th>';
-    h += '<th class="col-ma' + (showMA ? '' : ' col-hide') + '">M/A</th>';
-    h += '<th class="col-ak' + (showAktuell ? '' : ' col-hide') + '">Aktuell</th>';
+    h += '<th class="col-ma' + (showMA ? '' : ' col-hide') + '" title="Memory/Stichtag">M/A</th>';
+    h += '<th class="col-ak' + (showAktuell ? '' : ' col-hide') + '" title="Ablesewert/Alt-Wert">Aktuell</th>';
     h += '</tr></thead><tbody>';
 
     var lastHaus = null;

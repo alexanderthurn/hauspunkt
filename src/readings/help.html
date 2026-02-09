@@ -1,26 +1,97 @@
 <!DOCTYPE html>
 <html lang="de">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hauspunkt – Hilfe</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font: 15px/1.6 -apple-system, system-ui, sans-serif; background: #fff; color: #222; }
-        .hdr { display: flex; align-items: center; gap: 10px; padding: 6px 12px; border-bottom: 1px solid #ccc; background: #fafafa; font-size: 15px; }
-        .hdr img { height: 24px; }
-        main { max-width: 680px; margin: 0 auto; padding: 16px 12px; }
-        h1 { font-size: 20px; margin-bottom: 14px; }
-        h2 { font-size: 16px; margin-top: 18px; margin-bottom: 6px; color: #07c; }
-        .step { border: 1px solid #ddd; border-radius: 5px; padding: 10px 12px; margin-bottom: 8px; }
-        .sn { display: inline-block; width: 24px; height: 24px; line-height: 24px; text-align: center; background: #07c; color: #fff; border-radius: 50%; font-weight: 700; font-size: 13px; margin-right: 6px; }
-        .step p { margin-top: 5px; font-size: 15px; color: #555; }
-        a { color: #07c; }
-        .back { display: inline-block; margin-top: 16px; font-size: 15px; }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font: 15px/1.6 -apple-system, system-ui, sans-serif;
+            background: #fff;
+            color: #222;
+        }
+
+        .hdr {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 12px;
+            border-bottom: 1px solid #ccc;
+            background: #fafafa;
+            font-size: 15px;
+        }
+
+        .hdr img {
+            height: 24px;
+        }
+
+        main {
+            max-width: 680px;
+            margin: 0 auto;
+            padding: 16px 12px;
+        }
+
+        h1 {
+            font-size: 20px;
+            margin-bottom: 14px;
+        }
+
+        h2 {
+            font-size: 16px;
+            margin-top: 18px;
+            margin-bottom: 6px;
+            color: #07c;
+        }
+
+        .step {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+        }
+
+        .sn {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            line-height: 24px;
+            text-align: center;
+            background: #07c;
+            color: #fff;
+            border-radius: 50%;
+            font-weight: 700;
+            font-size: 13px;
+            margin-right: 6px;
+        }
+
+        .step p {
+            margin-top: 5px;
+            font-size: 15px;
+            color: #555;
+        }
+
+        a {
+            color: #07c;
+        }
+
+        .back {
+            display: inline-block;
+            margin-top: 16px;
+            font-size: 15px;
+        }
     </style>
 </head>
+
 <body>
-    <div class="hdr"><a href="#" id="back-link" style="display:flex"><img src="../common/logo.svg" alt="HP"></a> <span>Hilfe</span></div>
+    <div class="hdr"><a href="#" id="back-link" style="display:flex"><img src="../common/logo.svg" alt="HP"></a>
+        <span>Hilfe</span></div>
     <script>
         var name = new URLSearchParams(window.location.search).get('name');
         if (name) document.getElementById('back-link').href = './?name=' + encodeURIComponent(name);
@@ -32,8 +103,8 @@
         <h2>Spalten: M/A und Aktuell</h2>
         <div class="step">
             <p>Oben können Sie die Spalten <strong>M/A</strong> und <strong>Aktuell</strong> ein- oder ausblenden.</p>
-            <p><strong>M/A</strong> – der Zählerstand zum Stichtag für die jährliche Nebenkostenabrechnung.</p>
-            <p><strong>Aktuell</strong> – ein aktueller Zwischenstand, z.B. für eine unterjährige Kontrolle.</p>
+            <p><strong>M/A (Memory/Stichtag)</strong> – der gespeicherte Zählerstand zum letzten Stichtag.</p>
+            <p><strong>Aktuell (Ablesewert/Alt-Wert)</strong> – der aktuell am Gerät abgelesene Wert.</p>
             <p>In der Regel reicht eine Spalte. Ihr Verwalter teilt Ihnen mit, welche Sie verwenden sollen.</p>
         </div>
 
@@ -43,7 +114,8 @@
         </div>
         <div class="step">
             <span class="sn">2</span> <strong>Werte eintragen</strong>
-            <p>Für jeden Zähler geben Sie den aktuellen Wert in das Eingabefeld ein. Ausgefüllte Felder werden grün markiert.</p>
+            <p>Für jeden Zähler geben Sie den aktuellen Wert in das Eingabefeld ein. Ausgefüllte Felder werden grün
+                markiert.</p>
         </div>
         <div class="step">
             <span class="sn">3</span> <strong>Speichern</strong>
@@ -52,13 +124,15 @@
 
         <h2>Heizkostenverteiler ablesen</h2>
         <div class="step">
-            <p>Wert hinter <strong>„A"</strong> (Aktuell) oder <strong>„M"</strong> (Monat) ablesen. Nur die Zahl eingeben.</p>
-            <p><a href="https://www.heizware.de/dokumente/heizkostenverteiler/Heizkostenverteiler-Qundis-Caloric55-Display.pdf" target="_blank" rel="noopener">→ Anleitung Heizkostenverteiler (PDF)</a></p>
+            <p>Wert hinter <strong>„M"</strong> (Memory/Stichtag) oder <strong>„A"</strong> (Ablesewert/Alt-Wert)
+                ablesen. Nur die Zahl eingeben.</p>
+            <p><a href="https://www.heizware.de/dokumente/heizkostenverteiler/Heizkostenverteiler-Qundis-Caloric55-Display.pdf"
+                    target="_blank" rel="noopener">→ Anleitung Heizkostenverteiler (PDF)</a></p>
         </div>
 
         <h2>Verschiedene Zählertypen</h2>
         <div class="step">
-            <p><strong>Heizung:</strong> Wert hinter „A" oder „M" ablesen.</p>
+            <p><strong>Heizung:</strong> Wert hinter „M" (Memory) oder „A" (Ablesewert) ablesen.</p>
             <p><strong>Strom:</strong> Zählerstand von links nach rechts (Vorkommastellen).</p>
             <p><strong>Wasser:</strong> Zählerstand in m³, schwarze Zahlen.</p>
             <p><strong>Gas:</strong> Zählerstand in m³.</p>
@@ -66,15 +140,18 @@
 
         <h2>Export & Import (☰-Menü)</h2>
         <div class="step">
-            <p>Über das ☰-Menü oben rechts können Sie die Zählerliste als CSV, Excel oder PDF exportieren, z.B. zum Ausdrucken. Ausgefüllte CSV- oder Excel-Dateien können auch wieder importiert werden.</p>
+            <p>Über das ☰-Menü oben rechts können Sie die Zählerliste als CSV, Excel oder PDF exportieren, z.B. zum
+                Ausdrucken. Ausgefüllte CSV- oder Excel-Dateien können auch wieder importiert werden.</p>
         </div>
 
         <h2>Verbrauchsdiagramm</h2>
         <div class="step">
-            <p>Im ☰-Menü finden Sie auch das <a href="#" id="chart-link">Verbrauchsdiagramm</a>. Es zeigt den Verlauf Ihrer Zählerstände als Kurve über die Zeit und den Jahresverbrauch als Balken. Sie können zwischen Rohwert und gewichtetem Verbrauch (Faktor × Messwert) umschalten.</p>
+            <p>Im ☰-Menü finden Sie auch das <a href="#" id="chart-link">Verbrauchsdiagramm</a>. Es zeigt den Verlauf
+                Ihrer Zählerstände als Kurve über die Zeit und den Jahresverbrauch als Balken. Sie können zwischen
+                Rohwert und gewichtetem Verbrauch (Faktor × Messwert) umschalten.</p>
         </div>
         <script>
-            (function() {
+            (function () {
                 var cn = new URLSearchParams(window.location.search).get('name');
                 var cl = document.getElementById('chart-link');
                 cl.href = cn ? 'chart.html?name=' + encodeURIComponent(cn) : 'chart.html';
@@ -88,4 +165,5 @@
         </script>
     </main>
 </body>
+
 </html>
