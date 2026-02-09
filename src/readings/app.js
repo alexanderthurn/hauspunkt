@@ -132,8 +132,8 @@ function render() {
     h += '<th class="col-desk">Haus</th>';
     h += '<th class="col-desk">Einheit</th>';
     h += '<th>Bezeichnung</th>';
-    h += '<th>Nr.</th>';
     h += '<th class="col-desk">Typ</th>';
+    h += '<th>Nr.</th>';
     h += '<th class="col-ma' + (showMA ? '' : ' col-hide') + '" title="Memory/Stichtag">M/A</th>';
     h += '<th class="col-ak' + (showAktuell ? '' : ' col-hide') + '" title="Ablesewert/Alt-Wert">Aktuell</th>';
     h += '</tr></thead><tbody>';
@@ -161,8 +161,8 @@ function render() {
         h += '<td class="col-desk">' + esc(m.haus) + '</td>';
         h += '<td class="col-desk">' + esc(m.einheit) + '</td>';
         h += '<td>' + esc(m.bezeichnung) + '<br><span class="col-typ-br">' + esc(m.typ) + '</span></td>';
-        h += '<td class="col-nr">' + esc(m.nr) + '</td>';
         h += '<td class="col-desk">' + esc(m.typ) + '</td>';
+        h += '<td class="col-nr">' + esc(m.nr) + '</td>';
         var dis = locked ? ' disabled' : '';
         var foreignLabel = isForeign ? '<span class="foreign-hint">von ' + esc(foreignSources[m.nr]) + '</span>' : '';
         h += '<td class="col-ma' + (showMA ? '' : ' col-hide') + '"><input class="vi' + foreignCls + '" type="text" inputmode="decimal" data-nr="' + esc(m.nr) + '" data-field="ma" value="' + esc(ex.wertMA || '') + '" oninput="onVal(this)"' + dis + foreignHint + '>' + (isForeign && (ex.wertMA || '') ? foreignLabel : '') + '</td>';
@@ -374,13 +374,13 @@ var NUM_READING_COLS = 4;
 
 function exportReadingsExcel() {
     var data = getReadingsForExport();
-    var header = ['Haus', 'Einheit', 'Nr', 'Bezeichnung', 'Typ', 'Stichtag', 'Datum'];
+    var header = ['Haus', 'Einheit', 'Bezeichnung', 'Typ', 'Nr', 'Stichtag', 'Datum'];
     if (showMA) header.push('M/A');
     if (showAktuell) header.push('Aktuell');
     var rows = [header];
     data.meters.forEach(function (m) {
         var ex = data.existing[m.nr] || {};
-        var row = [m.haus, m.einheit, m.nr, m.bezeichnung, m.typ, m.stichtag || '31.12', formatDateDE(currentDatum)];
+        var row = [m.haus, m.einheit, m.bezeichnung, m.typ, m.nr, m.stichtag || '31.12', formatDateDE(currentDatum)];
         if (showMA) row.push(ex.wertMA || '');
         if (showAktuell) row.push(ex.wertAktuell || '');
         rows.push(row);
@@ -400,8 +400,8 @@ function exportReadingsPDF() {
     });
     stichtage.sort();
 
-    // PDF: Einheit, Nr, Bezeichnung, Typ, M/A, Aktuell
-    var head = ['Einheit', 'Nr.', 'Bezeichnung', 'Typ'];
+    // PDF: Einheit, Bezeichnung, Typ, Nr., M/A, Aktuell
+    var head = ['Einheit', 'Bezeichnung', 'Typ', 'Nr.'];
     if (showMA) {
         var maLabel = 'M/A';
         if (stichtage.length > 0) maLabel += ' (' + stichtage.join(', ') + ')';
@@ -419,7 +419,7 @@ function exportReadingsPDF() {
             lastHaus = m.haus;
         }
         var ex = data.existing[m.nr] || {};
-        var row = [m.einheit, m.nr, m.bezeichnung, m.typ];
+        var row = [m.einheit, m.bezeichnung, m.typ, m.nr];
         if (showMA) row.push(ex.wertMA || '');
         if (showAktuell) row.push(ex.wertAktuell || '');
         body.push(row);
