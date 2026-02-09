@@ -125,7 +125,12 @@ if ($action === 'load' && $method === 'GET') {
     unset($vals);
 
     hp_json_response([
-        'view' => ['id' => $view['id'], 'name' => $view['name'], 'editableFrom' => $view['editableFrom'] ?? ''],
+        'view' => [
+            'id' => $view['id'],
+            'name' => $view['name'],
+            'editableFrom' => $view['editableFrom'] ?? '',
+            'editableUntil' => $view['editableUntil'] ?? ''
+        ],
         'meters' => $filtered,
         'datum' => $datum,
         'readingId' => $readingId,
@@ -158,8 +163,12 @@ if ($action === 'save' && $method === 'POST') {
         foreach ($views as $v) {
             if ($v['name'] === $viewName) {
                 $editableFrom = $v['editableFrom'] ?? '';
+                $editableUntil = $v['editableUntil'] ?? '';
                 if (!empty($editableFrom) && $datum < $editableFrom) {
                     hp_error_response('Änderungen vor dem ' . date('d.m.Y', strtotime($editableFrom)) . ' sind nicht erlaubt.');
+                }
+                if (!empty($editableUntil) && $datum > $editableUntil) {
+                    hp_error_response('Änderungen nach dem ' . date('d.m.Y', strtotime($editableUntil)) . ' sind nicht erlaubt.');
                 }
                 break;
             }

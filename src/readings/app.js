@@ -83,9 +83,11 @@ async function init() {
 function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
 function isDateLocked() {
-    var editableFrom = viewData.view.editableFrom || '';
-    if (!editableFrom) return false;
-    return currentDatum < editableFrom;
+    var from = viewData.view.editableFrom || '';
+    var until = viewData.view.editableUntil || '';
+    if (from && currentDatum < from) return true;
+    if (until && currentDatum > until) return true;
+    return false;
 }
 
 function render() {
@@ -172,8 +174,13 @@ function render() {
     });
     h += '</tbody></table></div>';
     if (locked) {
-        var efDate = formatDateDE(viewData.view.editableFrom);
-        h += '<div class="save-bar" style="text-align:center;color:#c62828;padding:8px 12px">Änderungen vor dem ' + esc(efDate) + ' sind gesperrt.</div>';
+        var from = viewData.view.editableFrom || '';
+        var until = viewData.view.editableUntil || '';
+        var msg = 'Gesperrt: Änderungen sind ';
+        if (from && until) msg += 'nur vom ' + formatDateDE(from) + ' bis ' + formatDateDE(until) + ' erlaubt.';
+        else if (from) msg += 'erst ab dem ' + formatDateDE(from) + ' erlaubt.';
+        else if (until) msg += 'nur bis zum ' + formatDateDE(until) + ' erlaubt.';
+        h += '<div class="save-bar" style="text-align:center;color:#c62828;padding:8px 12px">' + esc(msg) + '</div>';
     } else {
         h += '<div class="save-bar">';
         h += '<textarea id="notizen" placeholder="Notizen (optional)" style="flex:1;padding:8px;border:1px solid #ccc;border-radius:4px;font:inherit;resize:none">' + esc(viewData.notizen || '') + '</textarea>';

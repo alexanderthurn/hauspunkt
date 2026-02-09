@@ -147,9 +147,12 @@ if ($action === 'view_save' && $method === 'POST') {
         'filter' => $body['filter'] ?? [],
         'token' => $isNew ? hp_generate_token() : (string) ($body['token'] ?? hp_generate_token()),
     ];
-    // Optionales Feld: editableFrom (Datum ab dem Änderungen erlaubt sind)
+    // Optional: editableFrom / editableUntil
     if (isset($body['editableFrom'])) {
         $view['editableFrom'] = (string) $body['editableFrom'];
+    }
+    if (isset($body['editableUntil'])) {
+        $view['editableUntil'] = (string) $body['editableUntil'];
     }
 
     if ($isNew) {
@@ -159,9 +162,12 @@ if ($action === 'view_save' && $method === 'POST') {
         foreach ($views as &$v) {
             if ($v['id'] === $id) {
                 $view['token'] = $v['token'];
-                // editableFrom beibehalten wenn nicht explizit gesendet
+                // Felder beibehalten wenn nicht explizit gesendet
                 if (!isset($body['editableFrom']) && isset($v['editableFrom'])) {
                     $view['editableFrom'] = $v['editableFrom'];
+                }
+                if (!isset($body['editableUntil']) && isset($v['editableUntil'])) {
+                    $view['editableUntil'] = $v['editableUntil'];
                 }
                 $v = $view;
                 $found = true;

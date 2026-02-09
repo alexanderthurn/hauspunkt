@@ -692,19 +692,23 @@ function renderViews() {
         } else {
             const chartLink = baseUrl + 'readings/chart.html?name=' + encodeURIComponent(v.name);
             const editFrom = v.editableFrom || '';
+            const editUntil = v.editableUntil || '';
             const editFromDisplay = editFrom ? HP.formatDate(editFrom) : '—';
+            const editUntilDisplay = editUntil ? HP.formatDate(editUntil) : '—';
+            const rangeDisplay = editFromDisplay + (editUntil ? ' bis ' + editUntilDisplay : '');
+
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>
                     <b>${esc(v.name)}</b>
                     <div class="row-sub mod-mobile">
                         <span>${matched.length} Zähler</span> · 
-                        <span>${esc(editFromDisplay)}</span>
+                        <span>${esc(rangeDisplay)}</span>
                     </div>
                 </td>
                 <td class="col-desk">${esc(fDesc)}</td>
                 <td class="col-desk text-center">${matched.length}</td>
-                <td style="white-space:nowrap" class="col-desk"><span class="ef-display">${esc(editFromDisplay)}</span></td>
+                <td style="white-space:nowrap" class="col-desk"><span class="ef-display">${esc(rangeDisplay)}</span></td>
                 <td>
                     <div class="row-sub mod-mobile" style="margin-bottom:4px">${esc(fDesc)}</div>
                     <div class="row-actions">
@@ -799,17 +803,34 @@ function appendViewEditRow(tbody, existingView) {
     efInp.style.width = '140px';
     efWrap.appendChild(efInp);
     const efTodayBtn = mk('button', 'Heute', 'b b-p');
-    efTodayBtn.type = 'button';
-    efTodayBtn.style.marginLeft = '4px';
     efTodayBtn.onclick = () => { efInp.value = new Date().toISOString().slice(0, 10); };
+    efTodayBtn.style.marginLeft = '4px';
     efWrap.appendChild(efTodayBtn);
     const efClearBtn = mk('button', '✕', 'b');
-    efClearBtn.type = 'button';
     efClearBtn.style.marginLeft = '2px';
     efClearBtn.title = 'Entfernen';
     efClearBtn.onclick = () => { efInp.value = ''; };
     efWrap.appendChild(efClearBtn);
     div.appendChild(efWrap);
+
+    // Änderbar bis
+    const etWrap = document.createElement('div');
+    etWrap.innerHTML = '<label>Änderbar bis</label>';
+    const etInp = document.createElement('input');
+    etInp.type = 'date';
+    etInp.value = existingView ? (existingView.editableUntil || '') : '';
+    etInp.style.width = '140px';
+    etWrap.appendChild(etInp);
+    const etTodayBtn = mk('button', 'Heute', 'b b-p');
+    etTodayBtn.onclick = () => { etInp.value = new Date().toISOString().slice(0, 10); };
+    etTodayBtn.style.marginLeft = '4px';
+    etWrap.appendChild(etTodayBtn);
+    const etClearBtn = mk('button', '✕', 'b');
+    etClearBtn.style.marginLeft = '2px';
+    etClearBtn.title = 'Entfernen';
+    etClearBtn.onclick = () => { etInp.value = ''; };
+    etWrap.appendChild(etClearBtn);
+    div.appendChild(etWrap);
 
     // Vorschau
     const previewWrap = document.createElement('div');
@@ -861,9 +882,10 @@ function appendViewEditRow(tbody, existingView) {
             filter: {
                 haus: hausSel.value,
                 einheit: mselGetVals('ve-einheit'),
-                typ: mselGetVals('ve-typ').length === 1 ? mselGetVals('ve-typ')[0] : '',
+                typ: mselGetVals('ve-typ').length === 1 ? mselGetVals('ve-typ')[0] : mselGetVals('ve-typ'),
             },
             editableFrom: efInp.value || '',
+            editableUntil: etInp.value || '',
         };
         try {
             await HP.api(API + '?action=view_save', { method: 'POST', body: data });
