@@ -324,22 +324,6 @@ function getReadingsForExport() {
 // Anzahl Ablesungs-Spalten für wiederverwendbare Formulare
 var NUM_READING_COLS = 4;
 
-function exportReadingsCSV() {
-    var data = getReadingsForExport();
-    var header = ['Haus', 'Einheit', 'Nr', 'Bezeichnung', 'Typ', 'Stichtag', 'Datum'];
-    if (showMA) header.push('M/A');
-    if (showAktuell) header.push('Aktuell');
-    var rows = [header];
-    data.meters.forEach(function (m) {
-        var ex = data.existing[m.nr] || {};
-        var row = [m.haus, m.einheit, m.nr, m.bezeichnung, m.typ, m.stichtag || '31.12', formatDateDE(currentDatum)];
-        if (showMA) row.push(ex.wertMA || '');
-        if (showAktuell) row.push(ex.wertAktuell || '');
-        rows.push(row);
-    });
-    HPExport.exportCSV(rows, 'ablesung_' + viewData.view.name + '_' + currentDatum + '.csv');
-    toast('CSV exportiert.', 'ok');
-}
 
 function exportReadingsExcel() {
     var data = getReadingsForExport();
@@ -441,17 +425,6 @@ function exportReadingsPDF() {
     toast('PDF exportiert.', 'ok');
 }
 
-function importReadingsCSV() {
-    HPExport.promptFileUpload('.csv', async function (file) {
-        try {
-            var text = await HPExport.readFileAsText(file);
-            var rows = HPExport.parseCSV(text);
-            await importReadingsFromFile(rows);
-        } catch (e) {
-            toast('Fehler: ' + e.message, 'err');
-        }
-    });
-}
 
 function importReadingsExcel() {
     HPExport.promptFileUpload('.xlsx,.xls', async function (file) {

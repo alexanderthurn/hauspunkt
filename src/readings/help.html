@@ -120,8 +120,9 @@
         <h2>Spalten: M/A und Aktuell</h2>
         <div class="step">
             <p>Oben können Sie die Spalten <strong>M/A</strong> und <strong>Aktuell</strong> ein- oder ausblenden.</p>
-            <p><strong>M/A (Memory/Stichtag)</strong> – der gespeicherte Zählerstand zum letzten Stichtag.</p>
-            <p><strong>Aktuell (Ablesewert/Alt-Wert)</strong> – der aktuell am Gerät abgelesene Wert.</p>
+            <p><strong>M/A (Memory/Stichtag)</strong> – Speziell bei Heizungen der Wert aus dem Speicher. Bei anderen
+                Zählern der Stand zum Stichtag.</p>
+            <p><strong>Aktuell (Ablesewert)</strong> – Der am Gerät aktuell abgelesene Wert.</p>
             <p>In der Regel reicht eine Spalte. Ihr Verwalter teilt Ihnen mit, welche Sie verwenden sollen.</p>
         </div>
 
@@ -139,7 +140,7 @@
             <p>Drücken Sie auf <strong>„Speichern"</strong>. Nur ausgefüllte Felder werden übertragen.</p>
         </div>
 
-        <h2>Heizkostenverteiler ablesen</h2>
+        <h2>Heizung / Heizkostenverteiler</h2>
         <div class="step">
             <p>Wert hinter <strong>„M"</strong> (Memory/Stichtag) oder <strong>„A"</strong> (Ablesewert/Alt-Wert)
                 ablesen. Nur die Zahl eingeben.</p>
@@ -149,35 +150,29 @@
                     target="_blank" rel="noopener">→ Anleitung Heizkostenverteiler (PDF)</a></p>
         </div>
 
-        <h2>Verschiedene Zählertypen</h2>
+        <h2>Stromzähler</h2>
         <div class="step">
-            <p><strong>Heizung:</strong> Wert hinter „M" (Memory) oder „A" (Ablesewert) ablesen.</p>
-            <p><strong>Strom:</strong> Zählerstand von links nach rechts (Vorkommastellen).</p>
-            <p><strong>Wasser:</strong> Zählerstand in m³, schwarze Zahlen.</p>
+            <p>Den Zählerstand von links nach rechts ablesen (nur Vorkommastellen). Den Wert einfach in das Feld
+                eintragen.</p>
+        </div>
+
+        <h2>Wasserzähler</h2>
+        <div class="step">
+            <p>Zählerstand in m³ ablesen (nur die schwarzen Zahlen). Den Wert einfach in das Feld eintragen.</p>
             <img src="../common/wasser.jpg" alt="Wasserzähler" class="help-img">
             <p class="img-hint">Hinweis: Die roten Zahlen im Nachkomma-Bereich bitte ignorieren!</p>
-            <p><strong>Gas:</strong> Zählerstand in m³.</p>
+        </div>
+
+        <h2>Gaszähler</h2>
+        <div class="step">
+            <p>Zählerstand in m³ ablesen. Den Wert einfach in das Feld eintragen.</p>
         </div>
 
         <h2>Export & Import (☰-Menü)</h2>
         <div class="step">
-            <p>Über das ☰-Menü oben rechts können Sie die Zählerliste als CSV, Excel oder PDF exportieren, z.B. zum
-                Ausdrucken. Ausgefüllte CSV- oder Excel-Dateien können auch wieder importiert werden.</p>
+            <p>Über das ☰-Menü oben rechts können Sie die Zählerliste als Excel oder PDF exportieren, z.B. zum
+                Ausdrucken. Ausgefüllte Excel-Dateien können auch wieder importiert werden.</p>
         </div>
-
-        <h2>Verbrauchsdiagramm</h2>
-        <div class="step">
-            <p>Im ☰-Menü finden Sie auch das <a href="#" id="chart-link">Verbrauchsdiagramm</a>. Es zeigt den Verlauf
-                Ihrer Zählerstände als Kurve über die Zeit und den Jahresverbrauch als Balken. Sie können zwischen
-                Rohwert und gewichtetem Verbrauch (Faktor × Messwert) umschalten.</p>
-        </div>
-        <script>
-            (function () {
-                var cn = new URLSearchParams(window.location.search).get('name');
-                var cl = document.getElementById('chart-link');
-                cl.href = cn ? 'chart.html?name=' + encodeURIComponent(cn) : 'chart.html';
-            })();
-        </script>
 
         <a href="#" id="back-bottom" class="back">← Zurück zur Ablesung</a>
         <script>
