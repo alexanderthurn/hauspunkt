@@ -659,19 +659,8 @@ function renderViews() {
             const editFrom = v.editableFrom || '';
             const editFromDisplay = editFrom ? HP.formatDate(editFrom) : '—';
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td><b>${esc(v.name)}</b></td><td>${esc(fDesc)}</td><td>${matched.length}</td><td style="white-space:nowrap"><span class="ef-display">${esc(editFromDisplay)}</span> <button class="b b-p btn-ef-today" title="Auf heute setzen">Heute</button></td><td><span class="v-link">${esc(link)}</span> <button class="b b-p btn-copy" title="Kopieren">📋</button> <a href="${esc(link)}" class="b b-p" title="Öffnen" target="_blank">↗</a> <a href="${esc(chartLink)}" class="b b-p" title="Diagramm" target="_blank">📈</a></td><td style="white-space:nowrap"></td>`;
+            tr.innerHTML = `<td><b>${esc(v.name)}</b></td><td>${esc(fDesc)}</td><td>${matched.length}</td><td style="white-space:nowrap"><span class="ef-display">${esc(editFromDisplay)}</span></td><td><span class="v-link">${esc(link)}</span> <button class="b b-p btn-copy" title="Kopieren">📋</button> <a href="${esc(link)}" class="b b-p" title="Öffnen" target="_blank">↗</a> <a href="${esc(chartLink)}" class="b b-p" title="Diagramm" target="_blank">📈</a></td><td style="white-space:nowrap"></td>`;
             tr.querySelector('.btn-copy').onclick = (e) => { e.preventDefault(); navigator.clipboard.writeText(link); toast('Kopiert!', 'ok'); };
-            tr.querySelector('.btn-ef-today').onclick = async () => {
-                const today = new Date().toISOString().slice(0, 10);
-                try {
-                    await HP.api(API + '?action=view_save', { method: 'POST', body: { id: v.id, token: v.token, name: v.name, filter: v.filter, editableFrom: today } });
-                    v.editableFrom = today;
-                    renderViews();
-                    toast('Änderbar ab ' + HP.formatDate(today) + ' gesetzt.', 'ok');
-                } catch (e) {
-                    toast('Fehler: ' + e.message, 'err');
-                }
-            };
             const tdAct = tr.lastElementChild;
             const btnEdit = mk('button', '✏', 'b b-p');
             btnEdit.onclick = () => { editingViewId = v.id; renderViews(); };
@@ -729,29 +718,22 @@ function appendViewEditRow(tbody, existingView) {
     hausWrap.appendChild(hausSel);
     div.appendChild(hausWrap);
 
-    // Einheit (multi)
+    // Einheit
     const einWrap = document.createElement('div');
-    einWrap.innerHTML = '<label>Einheit (Ctrl+Klick)</label>';
-    const einSel = document.createElement('select');
-    einSel.multiple = true;
-    einSel.size = 3;
-    allEinheit.forEach(e => {
-        const o = document.createElement('option');
-        o.value = e; o.textContent = e;
-        if (existingView && existingView.filter.einheit && existingView.filter.einheit.includes(e)) o.selected = true;
-        einSel.appendChild(o);
-    });
-    einWrap.appendChild(einSel);
+    einWrap.innerHTML = '<label>Einheit</label>';
+    const einMsel = document.createElement('div');
+    einMsel.id = 've-einheit';
+    einMsel.className = 'msel';
+    einWrap.appendChild(einMsel);
     div.appendChild(einWrap);
 
     // Typ
     const typWrap = document.createElement('div');
     typWrap.innerHTML = '<label>Typ</label>';
-    const typSel = document.createElement('select');
-    typSel.innerHTML = '<option value="">Alle</option>';
-    allTyp.forEach(t => { const o = document.createElement('option'); o.value = t; o.textContent = t; typSel.appendChild(o); });
-    if (existingView && existingView.filter.typ) typSel.value = existingView.filter.typ;
-    typWrap.appendChild(typSel);
+    const typMsel = document.createElement('div');
+    typMsel.id = 've-typ';
+    typMsel.className = 'msel';
+    typWrap.appendChild(typMsel);
     div.appendChild(typWrap);
 
     // Änderbar ab
@@ -801,16 +783,20 @@ function appendViewEditRow(tbody, existingView) {
     function updatePreview() {
         const filter = {
             haus: hausSel.value,
-            einheit: [...einSel.selectedOptions].map(o => o.value),
-            typ: typSel.value,
+            einheit: mselGetVals('ve-einheit'),
+            typ: mselGetVals('ve-typ').length === 1 ? mselGetVals('ve-typ')[0] : '', // Typ ist im Filter-Modell meist ein String oder wird als solcher behandelt
         };
         const matched = getFilteredByView(filter);
         previewWrap.querySelector('.pv-count').textContent = matched.length;
         previewDiv.innerHTML = matched.map(m => esc(m.bezeichnung) + ' (' + esc(m.haus) + '/' + esc(m.einheit) + ')').join('<br>') || '<em>Keine</em>';
     }
     hausSel.addEventListener('change', updatePreview);
-    einSel.addEventListener('change', updatePreview);
-    typSel.addEventListener('change', updatePreview);
+    mselInit('ve-einheit', updatePreview);
+    mselInit('ve-typ', updatePreview);
+    mselSetOptions('ve-einheit', allEinheit);
+    mselSetOptions('ve-typ', allTyp);
+    if (existingView && existingView.filter.einheit) mselSetVals('ve-einheit', existingView.filter.einheit);
+    if (existingView && existingView.filter.typ) mselSetVals('ve-typ', Array.isArray(existingView.filter.typ) ? existingView.filter.typ : [existingView.filter.typ]);
     updatePreview();
 
     btnSave.onclick = async () => {
@@ -820,8 +806,8 @@ function appendViewEditRow(tbody, existingView) {
             name: nameInp.value,
             filter: {
                 haus: hausSel.value,
-                einheit: [...einSel.selectedOptions].map(o => o.value),
-                typ: typSel.value,
+                einheit: mselGetVals('ve-einheit'),
+                typ: mselGetVals('ve-typ').length === 1 ? mselGetVals('ve-typ')[0] : '',
             },
             editableFrom: efInp.value || '',
         };

@@ -21,7 +21,7 @@ async function init() {
     }
     try {
         var res = await fetch(API + '?action=load&name=' + encodeURIComponent(name));
-        if (!res.ok) { var e = await res.json().catch(function() { return {}; }); throw new Error(e.error || 'HTTP ' + res.status); }
+        if (!res.ok) { var e = await res.json().catch(function () { return {}; }); throw new Error(e.error || 'HTTP ' + res.status); }
         viewData = await res.json();
         if (!viewData || !viewData.meters || !Array.isArray(viewData.meters)) throw new Error('Keine Zähler');
         var heute = new Date().toISOString().slice(0, 10);
@@ -95,7 +95,7 @@ function render() {
     var locked = isDateLocked();
 
     // Zähler nach Haus → Einheit sortieren
-    var sorted = viewData.meters.slice().sort(function(a, b) {
+    var sorted = viewData.meters.slice().sort(function (a, b) {
         var cmp = (a.haus || '').localeCompare(b.haus || '', 'de');
         if (cmp !== 0) return cmp;
         cmp = (a.einheit || '').localeCompare(b.einheit || '', 'de');
@@ -130,7 +130,7 @@ function render() {
 
     var lastHaus = null;
     var lastEinheit = null;
-    sorted.forEach(function(m) {
+    sorted.forEach(function (m) {
         // Haus-Gruppenheader
         if (m.haus !== lastHaus) {
             h += '<tr class="grp-haus"><td colspan="' + colCount + '">' + esc(m.haus || 'Ohne Haus') + '</td></tr>';
@@ -170,7 +170,7 @@ function render() {
     document.getElementById('app').innerHTML = h;
 
     // Filled-Status setzen
-    document.querySelectorAll('.vi').forEach(function(inp) {
+    document.querySelectorAll('.vi').forEach(function (inp) {
         if (inp.value.trim()) inp.classList.add('filled');
     });
 }
@@ -242,7 +242,7 @@ async function doSave() {
     }
     var existing = viewData.existing || {};
     var entries = [];
-    viewData.meters.forEach(function(m) {
+    viewData.meters.forEach(function (m) {
         var maInp = document.querySelector('input[data-nr="' + m.nr + '"][data-field="ma"]');
         var akInp = document.querySelector('input[data-nr="' + m.nr + '"][data-field="ak"]');
         var wMA = maInp ? maInp.value.trim() : '';
@@ -275,7 +275,7 @@ async function doSave() {
 // ── Burger-Menü ─────────────────────────────────────────────
 
 function initBurgerMenu() {
-    document.getElementById('btn-burger').addEventListener('click', function() {
+    document.getElementById('btn-burger').addEventListener('click', function () {
         var vname = new URLSearchParams(window.location.search).get('name');
         var helpUrl = 'help.html';
         var chartUrl = 'chart.html';
@@ -284,15 +284,12 @@ function initBurgerMenu() {
             chartUrl += '?name=' + encodeURIComponent(vname);
         }
         HPExport.createExportMenu(document.getElementById('burger-wrap'), [
-            { label: 'CSV exportieren', icon: '📄', onClick: exportReadingsCSV },
             { label: 'Excel exportieren', icon: '📊', onClick: exportReadingsExcel },
             { label: 'PDF exportieren', icon: '📕', onClick: exportReadingsPDF },
             { separator: true },
-            { label: 'CSV importieren', icon: '📥', onClick: importReadingsCSV },
             { label: 'Excel importieren', icon: '📥', onClick: importReadingsExcel },
             { separator: true },
-            { label: 'Verbrauchsdiagramm', icon: '📈', onClick: function() { window.location.href = chartUrl; } },
-            { label: 'Hilfe', icon: '?', onClick: function() { window.location.href = helpUrl; } },
+            { label: 'Hilfe', icon: '?', onClick: function () { window.location.href = helpUrl; } },
         ]);
     });
 }
@@ -300,7 +297,7 @@ function initBurgerMenu() {
 function getReadingsForExport() {
     if (!viewData || !viewData.meters) return { meters: [], existing: {} };
     var existing = viewData.existing || {};
-    var sorted = viewData.meters.slice().sort(function(a, b) {
+    var sorted = viewData.meters.slice().sort(function (a, b) {
         var cmp = (a.haus || '').localeCompare(b.haus || '', 'de');
         if (cmp !== 0) return cmp;
         cmp = (a.einheit || '').localeCompare(b.einheit || '', 'de');
@@ -317,7 +314,7 @@ function exportReadingsCSV() {
     var data = getReadingsForExport();
     var header = ['Haus', 'Einheit', 'Nr', 'Bezeichnung', 'Typ', 'Stichtag', 'Datum', 'M/A', 'Aktuell'];
     var rows = [header];
-    data.meters.forEach(function(m) {
+    data.meters.forEach(function (m) {
         var ex = data.existing[m.nr] || {};
         rows.push([m.haus, m.einheit, m.nr, m.bezeichnung, m.typ, m.stichtag || '31.12', currentDatum, ex.wertMA || '', ex.wertAktuell || '']);
     });
@@ -329,7 +326,7 @@ function exportReadingsExcel() {
     var data = getReadingsForExport();
     var header = ['Haus', 'Einheit', 'Nr', 'Bezeichnung', 'Typ', 'Stichtag', 'Datum', 'M/A', 'Aktuell'];
     var rows = [header];
-    data.meters.forEach(function(m) {
+    data.meters.forEach(function (m) {
         var ex = data.existing[m.nr] || {};
         rows.push([m.haus, m.einheit, m.nr, m.bezeichnung, m.typ, m.stichtag || '31.12', currentDatum, ex.wertMA || '', ex.wertAktuell || '']);
     });
@@ -350,7 +347,7 @@ function exportReadingsPDF() {
     // Gruppierte Darstellung
     var body = [];
     var lastHaus = null;
-    data.meters.forEach(function(m) {
+    data.meters.forEach(function (m) {
         if (m.haus !== lastHaus) {
             // Gruppenzeile für Haus
             var groupRow = [{ content: m.haus || 'Ohne Haus', colSpan: 5 + NUM_READING_COLS * 2, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } }];
@@ -391,7 +388,7 @@ function exportReadingsPDF() {
 }
 
 function importReadingsCSV() {
-    HPExport.promptFileUpload('.csv', async function(file) {
+    HPExport.promptFileUpload('.csv', async function (file) {
         try {
             var text = await HPExport.readFileAsText(file);
             var rows = HPExport.parseCSV(text);
@@ -403,7 +400,7 @@ function importReadingsCSV() {
 }
 
 function importReadingsExcel() {
-    HPExport.promptFileUpload('.xlsx,.xls', async function(file) {
+    HPExport.promptFileUpload('.xlsx,.xls', async function (file) {
         try {
             var buf = await HPExport.readFileAsArrayBuffer(file);
             var rows = HPExport.parseExcel(buf);
@@ -423,14 +420,14 @@ async function importReadingsFromFile(rows) {
         'wertaktuell': 'wertAktuell', 'aktuell': 'wertAktuell',
         'datum': 'datum', 'date': 'datum',
     };
-    var mapped = rows.map(function(r) {
+    var mapped = rows.map(function (r) {
         var m = {};
-        Object.keys(r).forEach(function(k) {
+        Object.keys(r).forEach(function (k) {
             var mk = mapping[k.toLowerCase().trim()];
             if (mk) m[mk] = String(r[k]);
         });
         return m;
-    }).filter(function(m) { return m.nr; });
+    }).filter(function (m) { return m.nr; });
 
     if (!mapped.length) { toast('Keine gültigen Daten. Spalte "Nr" benötigt.', 'warn'); return; }
 
@@ -453,7 +450,7 @@ async function importReadingsFromFile(rows) {
 
     // Werte in die aktuellen Eingabefelder übernehmen
     var count = 0;
-    mapped.forEach(function(m) {
+    mapped.forEach(function (m) {
         var maInp = document.querySelector('input[data-nr="' + m.nr + '"][data-field="ma"]');
         var akInp = document.querySelector('input[data-nr="' + m.nr + '"][data-field="ak"]');
         if (maInp && m.wertMA) { maInp.value = m.wertMA; maInp.classList.toggle('filled', true); count++; }
@@ -470,5 +467,5 @@ function toast(msg, type) {
     t.style.background = colors[type] || colors.info;
     t.textContent = msg;
     c.appendChild(t);
-    setTimeout(function() { t.remove(); }, 2500);
+    setTimeout(function () { t.remove(); }, 2500);
 }
