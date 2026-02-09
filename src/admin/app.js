@@ -897,6 +897,7 @@ function renderOverview() {
     const einheit = getSelVals(document.getElementById('of-einheit'));
     const typ = getSelVals(document.getElementById('of-typ'));
     const filtered = getFiltered(haus, einheit, typ);
+    const filteredIds = new Set(filtered.map(m => m.nr));
 
     const jahr = getSelectedYear();
 
@@ -932,6 +933,7 @@ function renderOverview() {
             const vn = r.viewName || '';
             const werte = r.werte || {};
             Object.entries(werte).forEach(([mid, vals]) => {
+                if (!filteredIds.has(mid)) return;
                 if (!meterVals[mid]) meterVals[mid] = { maVals: [], akVals: [] };
                 const ma = vals.wertMA || '';
                 const ak = vals.wertAktuell || '';
@@ -966,7 +968,6 @@ function renderOverview() {
         let first = true;
         if (info.hasMA) { displayCols.push({ ...dObj, sc: 'M/A', isFirst: first }); first = false; }
         if (info.hasAk) { displayCols.push({ ...dObj, sc: 'Aktuell', isFirst: first }); first = false; }
-        if (!info.hasMA && !info.hasAk) displayCols.push({ ...dObj, sc: 'M/A', isFirst: true });
     });
 
     // Schritt 4: Header rendern
@@ -1184,6 +1185,7 @@ function getOverviewExportData() {
     const einheit = getSelVals(document.getElementById('of-einheit'));
     const typ = getSelVals(document.getElementById('of-typ'));
     const filtered = getFiltered(haus, einheit, typ);
+    const filteredIds = new Set(filtered.map(m => m.nr));
     const jahr = getSelectedYear();
 
     // Gleiche Merge-Logik wie renderOverview
@@ -1210,6 +1212,7 @@ function getOverviewExportData() {
         dObj.readings.forEach(r => {
             const vn = r.viewName || '';
             Object.entries(r.werte || {}).forEach(([mid, vals]) => {
+                if (!filteredIds.has(mid)) return;
                 if (!meterVals[mid]) meterVals[mid] = { maVals: [], akVals: [] };
                 const ma = vals.wertMA || '';
                 const ak = vals.wertAktuell || '';
@@ -1237,7 +1240,6 @@ function getOverviewExportData() {
         let first = true;
         if (info.hasMA) { displayCols.push({ ...dObj, sc: 'M/A', isFirst: first }); first = false; }
         if (info.hasAk) { displayCols.push({ ...dObj, sc: 'Aktuell', isFirst: first }); first = false; }
-        if (!info.hasMA && !info.hasAk) displayCols.push({ ...dObj, sc: 'M/A', isFirst: true });
     });
 
     const sorted = filtered.slice().sort((a, b) => {
