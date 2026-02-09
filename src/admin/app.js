@@ -299,8 +299,8 @@ function syncFiltersToUrl() {
     if (einheit.length) params.set('einheit', einheit.join(',')); else params.delete('einheit');
     if (typ.length) params.set('typ', typ.join(',')); else params.delete('typ');
     // Jahr-Filter
-    const jahr = getSelectedYear();
-    if (jahr) params.set('jahr', jahr); else params.delete('jahr');
+    const jahre = getSelectedYear();
+    if (jahre.length) params.set('jahr', jahre.join(',')); else params.delete('jahr');
     // Werte-Filter
     const werte = getSelVals(document.getElementById('of-werte'));
     if (werte.length) params.set('werte', werte.join(',')); else params.delete('werte');
@@ -323,6 +323,8 @@ function loadFiltersFromUrl() {
     setSelVals(document.getElementById('of-typ'), typ);
     const werte = (params.get('werte') || '').split(',').filter(Boolean);
     setSelVals(document.getElementById('of-werte'), werte);
+    const jahre = (params.get('jahr') || '').split(',').filter(Boolean);
+    setSelVals(document.getElementById('of-jahr'), jahre);
     // Jahr-Filter (wird in refreshYearFilter via URL gesetzt)
 }
 
@@ -860,7 +862,7 @@ function initOverviewEvents() {
     mselInit('of-einheit', ovFilterChange);
     mselInit('of-typ', ovFilterChange);
     mselInit('of-werte', ovFilterChange);
-    document.getElementById('of-jahr').addEventListener('change', () => { syncFiltersToUrl(); renderOverview(); });
+    mselInit('of-jahr', ovFilterChange);
 }
 
 async function loadOverview() {
@@ -875,22 +877,22 @@ async function loadOverview() {
 
 function refreshYearFilter() {
     const el = document.getElementById('of-jahr');
-    const cur = el.value;
     const yearSet = {};
     readings.forEach(r => { if (r.datum) yearSet[r.datum.slice(0, 4)] = true; });
     // Aktuelles Jahr immer hinzufügen
     yearSet[new Date().getFullYear().toString()] = true;
     const years = Object.keys(yearSet).sort();
-    el.innerHTML = '<option value="">Alle</option>';
-    years.forEach(y => { const o = document.createElement('option'); o.value = y; o.textContent = y; el.appendChild(o); });
-    // URL-Wert oder vorherige Auswahl wiederherstellen
+
+    mselSetOptions('of-jahr', years);
+
+    // URL-Wert wiederherstellen
     const params = new URLSearchParams(window.location.search);
-    const urlJahr = params.get('jahr') || cur || '';
-    if (urlJahr) el.value = urlJahr;
+    const urlJahre = (params.get('jahr') || '').split(',').filter(Boolean);
+    if (urlJahre.length) mselSetVals('of-jahr', urlJahre);
 }
 
 function getSelectedYear() {
-    return document.getElementById('of-jahr').value;
+    return getSelVals(document.getElementById('of-jahr'));
 }
 
 function filterByYear(items, yearVal) {
@@ -927,7 +929,7 @@ function renderOverview() {
     // Sortierte Daten
     let datumList = Object.values(datumMap);
     datumList.sort((a, b) => a.datum.localeCompare(b.datum));
-    if (jahr) datumList = datumList.filter(d => d.datum.startsWith(jahr));
+    if (jahr.length) datumList = datumList.filter(d => jahr.some(y => d.datum.startsWith(y)));
 
     // Schritt 2: Pro Datum prüfen welche Sub-Spalten (M/A, Aktuell) vorhanden sind
     // Und eine merged valMap bauen: meterId|datum → { wertMA: mergedStr, wertAktuell: mergedStr }
@@ -991,6 +993,7 @@ function renderOverview() {
             });
         });
         periodYears = [...yearsFound].sort((a, b) => b - a);
+        if (jahr.length) periodYears = periodYears.filter(y => jahr.includes(String(y)));
         periodYears.forEach(y => {
             Object.entries(periodData[y]).forEach(([mid, data]) => {
                 mergedValMap[mid + '|P' + y] = { wertMA: data.val, wertAktuell: '', maConflict: false, akConflict: false };
@@ -1264,7 +1267,7 @@ function getOverviewExportData() {
 
     let datumList = Object.values(datumMap);
     datumList.sort((a, b) => a.datum.localeCompare(b.datum));
-    if (jahr) datumList = datumList.filter(d => d.datum.startsWith(jahr));
+    if (jahr.length) datumList = datumList.filter(d => jahr.some(y => d.datum.startsWith(y)));
 
     const mergedValMap = {};
     const datumSubMap = {};
@@ -1317,6 +1320,7 @@ function getOverviewExportData() {
             });
         });
         periodYears = [...yearsFound].sort((a, b) => b - a);
+        if (jahr.length) periodYears = periodYears.filter(y => jahr.includes(String(y)));
         periodYears.forEach(y => {
             Object.entries(periodData[y]).forEach(([mid, data]) => {
                 mergedValMap[mid + '|P' + y] = { wertMA: data.val, wertAktuell: '', maConflict: false, akConflict: false };
