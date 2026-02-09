@@ -86,12 +86,29 @@
             margin-top: 16px;
             font-size: 15px;
         }
+
+        .help-img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+            margin: 10px 0;
+            border: 1px solid #eee;
+            display: block;
+        }
+
+        .img-hint {
+            font-size: 13px;
+            color: #c62828;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 
 <body>
     <div class="hdr"><a href="#" id="back-link" style="display:flex"><img src="../common/logo.svg" alt="HP"></a>
-        <span>Hilfe</span></div>
+        <span>Hilfe</span>
+    </div>
     <script>
         var name = new URLSearchParams(window.location.search).get('name');
         if (name) document.getElementById('back-link').href = './?name=' + encodeURIComponent(name);
@@ -126,6 +143,8 @@
         <div class="step">
             <p>Wert hinter <strong>„M"</strong> (Memory/Stichtag) oder <strong>„A"</strong> (Ablesewert/Alt-Wert)
                 ablesen. Nur die Zahl eingeben.</p>
+            <img src="../common/hz.jpg" alt="Heizkostenverteiler" class="help-img">
+            <p class="img-hint">Hinweis: Die roten Stellen oder die Werte nach dem Komma werden ignoriert!</p>
             <p><a href="https://www.heizware.de/dokumente/heizkostenverteiler/Heizkostenverteiler-Qundis-Caloric55-Display.pdf"
                     target="_blank" rel="noopener">→ Anleitung Heizkostenverteiler (PDF)</a></p>
         </div>
@@ -135,6 +154,8 @@
             <p><strong>Heizung:</strong> Wert hinter „M" (Memory) oder „A" (Ablesewert) ablesen.</p>
             <p><strong>Strom:</strong> Zählerstand von links nach rechts (Vorkommastellen).</p>
             <p><strong>Wasser:</strong> Zählerstand in m³, schwarze Zahlen.</p>
+            <img src="../common/wasser.jpg" alt="Wasserzähler" class="help-img">
+            <p class="img-hint">Hinweis: Die roten Zahlen im Nachkomma-Bereich bitte ignorieren!</p>
             <p><strong>Gas:</strong> Zählerstand in m³.</p>
         </div>
 
