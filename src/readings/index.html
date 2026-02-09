@@ -50,6 +50,18 @@
             text-decoration: none;
         }
 
+        .hdr .hdr-btn {
+            text-decoration: none;
+            background: #f0f7ff;
+            border: 1px solid #07c;
+            color: #07c;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
         /* Burger Menu */
         .burger-btn {
             background: none;
@@ -242,26 +254,33 @@
 
         /* Save */
         .save-bar {
-            padding: 4px 12px;
+            padding: 8px 12px;
             position: sticky;
             bottom: 0;
-            background: #fff;
-            border-top: 1px solid #eee;
+            background: #fafafa;
+            border-top: 1px solid #ccc;
             display: flex;
-            justify-content: flex-end;
+            justify-content: center;
+            align-items: stretch;
+            gap: 8px;
+            max-width: 500px;
+            margin: 0 auto;
         }
 
         .save-btn {
-            width: auto;
-            padding: 5px 20px;
+            flex: 0 0 100px;
+            padding: 8px 12px;
             font: inherit;
             font-size: 14px;
             font-weight: 600;
             background: #2e7d32;
             color: #fff;
             border: none;
-            border-radius: 3px;
+            border-radius: 4px;
             cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .save-btn:disabled {
@@ -431,7 +450,7 @@
             }
 
             .save-btn {
-                width: 100%;
+                flex: 0 0 100px;
                 padding: 12px;
                 font-size: 16px;
                 border-radius: 6px;
@@ -488,6 +507,7 @@
     <header class="hdr">
         <a href="#" id="logo-link" style="display:flex"><img src="../common/logo.svg" alt="HP"></a>
         <span class="t" id="hdr-title">Lade…</span>
+        <a href="help.html" class="hdr-btn" id="btn-help">? Hilfe</a>
         <span class="burger-wrap" id="burger-wrap"><button class="burger-btn" id="btn-burger">☰</button></span>
     </header>
     <div id="app">

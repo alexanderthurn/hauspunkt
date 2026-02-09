@@ -109,15 +109,16 @@ function render() {
 
     var h = '';
 
-    // Toolbar: Spalten-Toggle + Hilfe + PDF + Datum
+    // Toolbar: Spalten-Toggle + PDF + Datum
     h += '<div class="tbar">';
     h += '<span class="chip' + (showMA ? ' sel' : '') + '" onclick="toggleCol(\'ma\')" title="Memory/Stichtag">M/A</span>';
     h += '<span class="chip' + (showAktuell ? ' sel' : '') + '" onclick="toggleCol(\'aktuell\')" title="Ablesewert/Alt-Wert">Aktuell</span>';
 
-    // Hilfe-Knopf
+    // Hilfe-Link im Header aktualisieren
     var vname = new URLSearchParams(window.location.search).get('name');
     var helpUrl = 'help.html' + (vname ? '?name=' + encodeURIComponent(vname) : '');
-    h += '<a href="' + helpUrl + '" class="chip" style="text-decoration:none;background:#f0f7ff;border-color:#07c;color:#07c" title="Hilfe öffnen">? Hilfe</a>';
+    var helpBtn = document.getElementById('btn-help');
+    if (helpBtn) helpBtn.href = helpUrl;
 
     if (viewData.readingId && viewData.pdf) {
         h += '<a href="' + esc(viewData.pdf) + '" target="_blank" class="chip" style="background:#e8f5e9;border-color:#4caf50;color:#2e7d32;text-decoration:none" title="Unterschriebenes PDF herunterladen">✓ PDF</a>';
@@ -174,9 +175,8 @@ function render() {
         var efDate = formatDateDE(viewData.view.editableFrom);
         h += '<div class="save-bar" style="text-align:center;color:#c62828;padding:8px 12px">Änderungen vor dem ' + esc(efDate) + ' sind gesperrt.</div>';
     } else {
-        h += '<div class="save-bar" style="text-align:left;max-width:400px;margin:10px auto">';
-        h += '<label for="notizen" style="display:block;font-weight:bold;margin-bottom:4px">Notizen (optional)</label>';
-        h += '<textarea id="notizen" placeholder="Hier können Besonderheiten notiert werden..." style="width:100%;height:60px;margin-bottom:8px;padding:8px;border:1px solid #ccc;border-radius:4px;font:inherit">' + esc(viewData.notizen || '') + '</textarea><br>';
+        h += '<div class="save-bar">';
+        h += '<textarea id="notizen" placeholder="Notizen (optional)" style="flex:1;height:40px;padding:8px;border:1px solid #ccc;border-radius:4px;font:inherit;resize:none">' + esc(viewData.notizen || '') + '</textarea>';
         h += '<button class="save-btn" id="btn-save" onclick="doSave()">Speichern</button>';
         h += '</div>';
     }
