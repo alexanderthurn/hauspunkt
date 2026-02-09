@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hauspunkt – Verbrauchsdiagramm</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font: 15px/1.5 -apple-system, system-ui, sans-serif; background: #fff; color: #222; }
+
+        /* Header */
+        .hdr { display: flex; align-items: center; gap: 10px; padding: 6px 12px; border-bottom: 1px solid #ccc; background: #fafafa; }
+        .hdr img { height: 24px; }
+        .hdr-title { font-weight: 700; font-size: 15px; }
+        .hdr-spacer { flex: 1; }
+        .back-link { font-size: 14px; color: #07c; text-decoration: none; }
+
+        /* Controls */
+        .controls { padding: 8px 12px; border-bottom: 1px solid #eee; background: #fafafa; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .ctrl-group { display: flex; align-items: center; gap: 5px; }
+        .ctrl-label { font-size: 13px; color: #666; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+        select, input[type="date"] { font: 14px -apple-system, system-ui, sans-serif; padding: 3px 8px; border: 1px solid #ccc; border-radius: 3px; background: #fff; }
+        .chip { display: inline-block; padding: 3px 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 10px; cursor: pointer; user-select: none; background: #fff; }
+        .chip.sel { background: #07c; color: #fff; border-color: #07c; }
+
+        /* Chart container */
+        .chart-wrap { padding: 8px 12px; overflow-x: auto; }
+        #chart { width: 100%; min-height: 380px; }
+        #chart svg { display: block; }
+
+        /* D3 styles */
+        .axis text { font-size: 13px; fill: #555; }
+        .axis path, .axis line { stroke: #ccc; }
+        .grid line { stroke: #eee; stroke-dasharray: 2,2; }
+        .grid path { stroke: none; }
+        .line-path { fill: none; }
+        .dot { cursor: pointer; }
+        .tooltip { position: absolute; background: #333; color: #fff; padding: 6px 10px; border-radius: 3px; font-size: 13px; pointer-events: none; white-space: nowrap; z-index: 100; }
+        .legend { padding: 6px 12px; display: flex; flex-wrap: wrap; gap: 12px; font-size: 14px; }
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .legend-swatch { width: 16px; height: 16px; border-radius: 2px; flex-shrink: 0; }
+        .legend-line { width: 16px; height: 3px; border-radius: 1px; flex-shrink: 0; }
+
+        /* No data */
+        .no-data { padding: 40px 12px; text-align: center; color: #999; font-size: 15px; }
+
+        /* Error */
+        .hp-err { padding: 40px 12px; text-align: center; color: #c62828; font-size: 15px; }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            body { font-size: 13px; }
+            .hdr-title { font-size: 13px; }
+            .back-link { font-size: 12px; }
+            .controls { padding: 6px; gap: 4px; }
+            .ctrl-label { font-size: 11px; }
+            select, input[type="date"] { font-size: 12px; padding: 3px 6px; }
+            .chip { font-size: 12px; padding: 2px 8px; }
+            .axis text { font-size: 10px; }
+            #chart { min-height: 260px; }
+            .legend { font-size: 12px; }
+            .tooltip { font-size: 11px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="hdr">
+        <a href="#" id="back-link" style="display:flex"><img src="../common/logo.svg" alt="HP"></a>
+        <span class="hdr-title" id="hdr-title">Verbrauchsdiagramm</span>
+        <span class="hdr-spacer"></span>
+        <a href="#" id="back-top" class="back-link">← Zurück</a>
+    </div>
+
+    <div class="controls" id="controls">
+        <div class="ctrl-group">
+            <span class="ctrl-label">Zähler:</span>
+            <select id="sel-meter"></select>
+        </div>
+        <div class="ctrl-group" id="grp-typ" style="display:none">
+            <span class="ctrl-label">Typ:</span>
+            <span id="typ-chips"></span>
+        </div>
+        <div class="ctrl-group" id="grp-mode">
+            <span class="ctrl-label">Anzeige:</span>
+            <span class="chip sel" id="chip-raw" onclick="setMode('raw')">Rohwert</span>
+            <span class="chip" id="chip-weighted" onclick="setMode('weighted')">Gewichtet</span>
+        </div>
+        <div class="ctrl-group">
+            <span class="ctrl-label">Von:</span>
+            <input type="date" id="inp-von" onchange="syncToUrl(); drawChart()">
+        </div>
+        <div class="ctrl-group">
+            <span class="ctrl-label">Bis:</span>
+            <input type="date" id="inp-bis" onchange="syncToUrl(); drawChart()">
+        </div>
+    </div>
+
+    <div class="chart-wrap">
+        <div id="chart"></div>
+    </div>
+    <div class="legend" id="legend"></div>
+
+    <script src="../common/lib/d3.v7.min.js"></script>
+    <script>
+    /* ── State ──────────────────────────────────────────────── */
+    var API = 'api.php';
+    var historyData = null;   // { view, meters[], readings[] }
+    var selectedMeter = '';   // meter nr | '__all__' | '__sum_einheit__' | '__typ_HZ__' etc.
+    var displayMode = 'raw';  // 'raw' | 'weighted'
+    var allTypes = [];        // unique meter types
+    var allEinheiten = [];    // unique meter einheiten
+    var selectedType = '';    // '' = alle, or a specific typ
+
+    /* ── Init ──────────────────────────────────────────────── */
+    document.addEventListener('DOMContentLoaded', init);
+
+    async function init() {
+        var name = param('name');
+        if (!name) {
+            document.getElementById('chart').innerHTML = '<div class="hp-err">Kein Ansichtsname. Bitte den erhaltenen Link verwenden.</div>';
+            return;
+        }
+
+        // Back links
+        var backUrl = './?name=' + encodeURIComponent(name);
+        document.getElementById('back-link').href = backUrl;
+        document.getElementById('back-top').href = backUrl;
+
+        try {
+            var res = await fetch(API + '?action=history&name=' + encodeURIComponent(name));
+            if (!res.ok) { var e = await res.json().catch(function() { return {}; }); throw new Error(e.error || 'HTTP ' + res.status); }
+            historyData = await res.json();
+
+            if (!historyData.meters || !historyData.meters.length) {
+                document.getElementById('chart').innerHTML = '<div class="no-data">Keine Zähler für diese Ansicht.</div>';
+                return;
+            }
+
+            document.getElementById('hdr-title').textContent = historyData.view.name + ' – Diagramm';
+
+            // Collect unique types
+            allTypes = [];
+            historyData.meters.forEach(function(m) {
+                var t = m.typ || 'Sonstige';
+                if (allTypes.indexOf(t) === -1) allTypes.push(t);
+            });
+            allTypes.sort();
+
+            // Collect unique Einheiten
+            allEinheiten = [];
+            historyData.meters.forEach(function(m) {
+                var e = m.einheit || 'Sonstige';
+                if (allEinheiten.indexOf(e) === -1) allEinheiten.push(e);
+            });
+            allEinheiten.sort();
+
+            // Meter dropdown
+            var sel = document.getElementById('sel-meter');
+
+            // Default: Summe pro Einheit
+            var optSum = document.createElement('option');
+            optSum.value = '__sum_einheit__';
+            optSum.textContent = 'Σ Summe pro Einheit (Faktor × Wert)';
+            sel.appendChild(optSum);
+
+            var optAll = document.createElement('option');
+            optAll.value = '__all__';
+            optAll.textContent = 'Alle Zähler';
+            sel.appendChild(optAll);
+
+            // Type groups if more than 1 type
+            if (allTypes.length > 1) {
+                allTypes.forEach(function(t) {
+                    var opt = document.createElement('option');
+                    opt.value = '__typ_' + t + '__';
+                    opt.textContent = 'Nur ' + t;
+                    sel.appendChild(opt);
+                });
+            }
+
+            historyData.meters.forEach(function(m) {
+                var opt = document.createElement('option');
+                opt.value = m.nr;
+                opt.textContent = m.bezeichnung + ' [' + (m.typ || '?') + '] (' + m.nr + ')';
+                sel.appendChild(opt);
+            });
+
+            sel.addEventListener('change', function() {
+                selectedMeter = this.value;
+                updateControlVisibility();
+                syncToUrl();
+                drawChart();
+            });
+
+            // Typ-Filter Chips (for __all__ mode)
+            buildTypChips();
+
+            // Load state from URL (must happen after dropdown is built)
+            selectedMeter = '__sum_einheit__';
+            loadFromUrl();
+            buildTypChips(); // rebuild with loaded selectedType
+            updateControlVisibility();
+            drawChart();
+        } catch (e) {
+            document.getElementById('chart').innerHTML = '<div class="hp-err">Fehler beim Laden.<br><small style="color:#999">' + esc(e.message) + '</small></div>';
+        }
+    }
+
+    /* ── Helpers ────────────────────────────────────────────── */
+    function param(k) { return new URLSearchParams(window.location.search).get(k); }
+    function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    function parseDate(iso) { return new Date(iso + 'T00:00:00'); }
+    function fmtDate(d) {
+        var dd = String(d.getDate()).padStart(2, '0');
+        var mm = String(d.getMonth() + 1).padStart(2, '0');
+        return dd + '.' + mm + '.' + d.getFullYear();
+    }
+    function fmtNum(v) {
+        if (v === null || v === undefined || isNaN(v)) return '–';
+        return v % 1 === 0 ? String(v) : v.toFixed(2);
+    }
+
+    function isHZ(meter) {
+        return meter && (meter.typ || '').toUpperCase() === 'HZ';
+    }
+
+    function isMultiMode() {
+        return selectedMeter === '__all__' || selectedMeter.indexOf('__typ_') === 0;
+    }
+
+    function isSumMode() {
+        return selectedMeter === '__sum_einheit__';
+    }
+
+    /**
+     * Stichtag-Logik für M/A-Werte:
+     * Der Stichtag des Zählers (z.B. "31.01") bestimmt, welchem Abrechnungsdatum die Messung zugeordnet wird.
+     */
+    function computeStichtagDate(messungIso, stichtagStr) {
+        var parts = (stichtagStr || '31.12').split('.');
+        var stDay = parseInt(parts[0], 10) || 31;
+        var stMonth = parseInt(parts[1], 10) || 12;
+
+        var messung = parseDate(messungIso);
+        var mYear = messung.getFullYear();
+        var mMonth = messung.getMonth() + 1;
+        var mDay = messung.getDate();
+
+        var stichtagPassedThisYear = (mMonth > stMonth) || (mMonth === stMonth && mDay > stDay);
+        var targetYear = stichtagPassedThisYear ? mYear : mYear - 1;
+
+        var maxDay = new Date(targetYear, stMonth, 0).getDate();
+        var finalDay = Math.min(stDay, maxDay);
+
+        return new Date(targetYear, stMonth - 1, finalDay);
+    }
+
+    /* ── URL Sync ──────────────────────────────────────────── */
+    function syncToUrl() {
+        var params = new URLSearchParams(window.location.search);
+        if (selectedMeter && selectedMeter !== '__sum_einheit__') params.set('meter', selectedMeter);
+        else params.delete('meter');
+        if (displayMode !== 'raw') params.set('mode', displayMode);
+        else params.delete('mode');
+        if (selectedType) params.set('typ', selectedType);
+        else params.delete('typ');
+        var von = document.getElementById('inp-von').value;
+        var bis = document.getElementById('inp-bis').value;
+        if (von) params.set('von', von); else params.delete('von');
+        if (bis) params.set('bis', bis); else params.delete('bis');
+        // Clean up old params
+        params.delete('field');
+        history.replaceState(null, '', window.location.pathname + '?' + params.toString());
+    }
+
+    function loadFromUrl() {
+        var urlMeter = param('meter');
+        var urlMode = param('mode');
+        var urlTyp = param('typ');
+        var urlVon = param('von');
+        var urlBis = param('bis');
+
+        if (urlMode === 'weighted') displayMode = 'weighted';
+        if (urlTyp) selectedType = urlTyp;
+        if (urlVon) document.getElementById('inp-von').value = urlVon;
+        if (urlBis) document.getElementById('inp-bis').value = urlBis;
+
+        if (urlMeter) {
+            var sel = document.getElementById('sel-meter');
+            for (var i = 0; i < sel.options.length; i++) {
+                if (sel.options[i].value === urlMeter) {
+                    selectedMeter = urlMeter;
+                    sel.value = urlMeter;
+                    break;
+                }
+            }
+        }
+
+        document.getElementById('chip-raw').className = 'chip' + (displayMode === 'raw' ? ' sel' : '');
+        document.getElementById('chip-weighted').className = 'chip' + (displayMode === 'weighted' ? ' sel' : '');
+    }
+
+    /* ── Controls ──────────────────────────────────────────── */
+    function setMode(m) {
+        displayMode = m;
+        document.getElementById('chip-raw').className = 'chip' + (m === 'raw' ? ' sel' : '');
+        document.getElementById('chip-weighted').className = 'chip' + (m === 'weighted' ? ' sel' : '');
+        syncToUrl();
+        drawChart();
+    }
+
+    function updateControlVisibility() {
+        document.getElementById('grp-typ').style.display = (selectedMeter === '__all__' && allTypes.length > 1) ? '' : 'none';
+        // Hide raw/weighted toggle in sum mode (sum is always weighted)
+        document.getElementById('grp-mode').style.display = isSumMode() ? 'none' : '';
+    }
+
+    function buildTypChips() {
+        var container = document.getElementById('typ-chips');
+        container.innerHTML = '';
+
+        var chipAll = document.createElement('span');
+        chipAll.className = 'chip' + (selectedType === '' ? ' sel' : '');
+        chipAll.textContent = 'Alle';
+        chipAll.onclick = function() { setType(''); };
+        container.appendChild(chipAll);
+
+        allTypes.forEach(function(t) {
+            var chip = document.createElement('span');
+            chip.className = 'chip' + (selectedType === t ? ' sel' : '');
+            chip.textContent = t;
+            chip.onclick = function() { setType(t); };
+            container.appendChild(chip);
+        });
+    }
+
+    function setType(t) {
+        selectedType = t;
+        buildTypChips();
+        syncToUrl();
+        drawChart();
+    }
+
+    function getDateRange() {
+        var von = document.getElementById('inp-von').value;
+        var bis = document.getElementById('inp-bis').value;
+        return {
+            von: von ? parseDate(von) : null,
+            bis: bis ? parseDate(bis) : null
+        };
+    }
+
+    /* ── Data preparation ──────────────────────────────────── */
+    function getMeterInfo(nr) {
+        for (var i = 0; i < historyData.meters.length; i++) {
+            if (historyData.meters[i].nr === nr) return historyData.meters[i];
+        }
+        return null;
+    }
+
+    function getSelectedMeters() {
+        if (isSumMode()) return []; // sum mode handled separately in drawChart
+        if (selectedMeter === '__all__') {
+            return historyData.meters.filter(function(m) {
+                if (selectedType && (m.typ || 'Sonstige') !== selectedType) return false;
+                return true;
+            });
+        }
+        if (selectedMeter.indexOf('__typ_') === 0) {
+            var typ = selectedMeter.replace('__typ_', '').replace('__', '');
+            return historyData.meters.filter(function(m) {
+                return (m.typ || 'Sonstige') === typ;
+            });
+        }
+        var m = getMeterInfo(selectedMeter);
+        return m ? [m] : [];
+    }
+
+    /**
+     * Merged data preparation: combines M/A and Aktuell values.
+     * M/A values get mapped to the stichtag date, Aktuell values use the measurement date.
+     * If both exist for the same meter+reading, both are included as separate points.
+     */
+    function prepareSeriesData(meterNr) {
+        var meter = getMeterInfo(meterNr);
+        var faktor = meter && meter.faktor ? parseFloat(meter.faktor) : 1;
+        if (isNaN(faktor) || faktor === 0) faktor = 1;
+        var stichtag = meter ? (meter.stichtag || '31.12') : '31.12';
+        var range = getDateRange();
+
+        var points = [];
+        var seen = {}; // deduplicate by date+value
+
+        historyData.readings.forEach(function(r) {
+            var w = r.werte[meterNr];
+            if (!w) return;
+
+            // Process M/A value
+            var rawMA = w.wertMA;
+            if (rawMA !== '' && rawMA !== undefined && rawMA !== null) {
+                var valMA = parseFloat(rawMA);
+                if (!isNaN(valMA)) {
+                    var chartDateMA = computeStichtagDate(r.datum, stichtag);
+                    if ((!range.von || chartDateMA >= range.von) && (!range.bis || chartDateMA <= range.bis)) {
+                        var keyMA = chartDateMA.getTime() + ':' + valMA;
+                        if (!seen[keyMA]) {
+                            seen[keyMA] = true;
+                            var finalValMA = displayMode === 'weighted' ? valMA * faktor : valMA;
+                            points.push({
+                                date: chartDateMA,
+                                value: finalValMA,
+                                rawValue: valMA,
+                                datum: r.datum,
+                                source: 'M/A'
+                            });
+                        }
+                    }
+                }
+            }
+
+            // Process Aktuell value
+            var rawAk = w.wertAktuell;
+            if (rawAk !== '' && rawAk !== undefined && rawAk !== null) {
+                var valAk = parseFloat(rawAk);
+                if (!isNaN(valAk)) {
+                    var chartDateAk = parseDate(r.datum);
+                    if ((!range.von || chartDateAk >= range.von) && (!range.bis || chartDateAk <= range.bis)) {
+                        var keyAk = chartDateAk.getTime() + ':' + valAk;
+                        if (!seen[keyAk]) {
+                            seen[keyAk] = true;
+                            var finalValAk = displayMode === 'weighted' ? valAk * faktor : valAk;
+                            points.push({
+                                date: chartDateAk,
+                                value: finalValAk,
+                                rawValue: valAk,
+                                datum: r.datum,
+                                source: 'Aktuell'
+                            });
+                        }
+                    }
+                }
+            }
+        });
+
+        points.sort(function(a, b) { return a.date - b.date; });
+        return { meter: meter, points: points, faktor: faktor };
+    }
+
+    /**
+     * Compute weighted sum series grouped by Einheit.
+     * For each Einheit, sum up (value × faktor) across ALL meters of that Einheit per date.
+     * Returns an array of series objects, one per Einheit.
+     * Each series is categorized as HZ or other based on whether ALL meters in the Einheit are HZ.
+     */
+    function prepareSumByEinheit() {
+        var range = getDateRange();
+        var seriesList = [];
+
+        allEinheiten.forEach(function(einheit) {
+            var metersInEinheit = historyData.meters.filter(function(m) {
+                return (m.einheit || 'Sonstige') === einheit;
+            });
+            if (!metersInEinheit.length) return;
+
+            // Determine if this Einheit is purely HZ
+            var allHZ = metersInEinheit.every(function(m) { return isHZ(m); });
+
+            var dateMap = {};
+
+            historyData.readings.forEach(function(r) {
+                metersInEinheit.forEach(function(meter) {
+                    var w = r.werte[meter.nr];
+                    if (!w) return;
+
+                    var faktor = meter.faktor ? parseFloat(meter.faktor) : 1;
+                    if (isNaN(faktor) || faktor === 0) faktor = 1;
+                    var stichtag = meter.stichtag || '31.12';
+
+                    // M/A
+                    var rawMA = w.wertMA;
+                    if (rawMA !== '' && rawMA !== undefined && rawMA !== null) {
+                        var valMA = parseFloat(rawMA);
+                        if (!isNaN(valMA)) {
+                            var chartDate = computeStichtagDate(r.datum, stichtag);
+                            if ((!range.von || chartDate >= range.von) && (!range.bis || chartDate <= range.bis)) {
+                                var key = chartDate.getTime();
+                                if (!dateMap[key]) dateMap[key] = { date: chartDate, sum: 0, count: 0, datum: r.datum, source: 'M/A' };
+                                dateMap[key].sum += valMA * faktor;
+                                dateMap[key].count++;
+                            }
+                        }
+                    }
+
+                    // Aktuell
+                    var rawAk = w.wertAktuell;
+                    if (rawAk !== '' && rawAk !== undefined && rawAk !== null) {
+                        var valAk = parseFloat(rawAk);
+                        if (!isNaN(valAk)) {
+                            var chartDateAk = parseDate(r.datum);
+                            if ((!range.von || chartDateAk >= range.von) && (!range.bis || chartDateAk <= range.bis)) {
+                                var keyAk = chartDateAk.getTime();
+                                if (!dateMap[keyAk]) dateMap[keyAk] = { date: chartDateAk, sum: 0, count: 0, datum: r.datum, source: 'Aktuell' };
+                                dateMap[keyAk].sum += valAk * faktor;
+                                dateMap[keyAk].count++;
+                            }
+                        }
+                    }
+                });
+            });
+
+            var points = Object.keys(dateMap).map(function(key) {
+                var d = dateMap[key];
+                return {
+                    date: d.date,
+                    value: d.sum,
+                    rawValue: d.sum,
+                    datum: d.datum,
+                    source: d.source
+                };
+            });
+            points.sort(function(a, b) { return a.date - b.date; });
+
+            if (!points.length) return;
+
+            seriesList.push({
+                meter: { bezeichnung: 'Σ ' + einheit, typ: allHZ ? 'HZ' : 'Gemischt', einheit: einheit, nr: '__sum_' + einheit + '__' },
+                points: points,
+                faktor: 1,
+                isSum: true,
+                isHZSum: allHZ
+            });
+        });
+
+        return seriesList;
+    }
+
+    /* ── Drawing ───────────────────────────────────────────── */
+    // HZ: thin solid lines in cool blue tones
+    var hzColors = ['#07c', '#5c8a9e', '#3a7ca5', '#2196f3', '#0277bd', '#4fc3f7', '#0288d1', '#80cbc4'];
+    // Other: thick lines in warm/distinct colors
+    var otherColors = ['#e65100', '#d32f2f', '#7b1fa2', '#ff9800', '#4caf50', '#f44336', '#9c27b0', '#00897b'];
+
+    function drawChart() {
+        var chartEl = document.getElementById('chart');
+        chartEl.innerHTML = '';
+        document.getElementById('legend').innerHTML = '';
+        d3.selectAll('.tooltip').remove();
+
+        if (!historyData || !historyData.readings.length) {
+            chartEl.innerHTML = '<div class="no-data">Noch keine Ablesungen vorhanden.</div>';
+            return;
+        }
+
+        var meters = getSelectedMeters();
+        if (!isSumMode() && !meters.length) {
+            chartEl.innerHTML = '<div class="no-data">Keine Zähler für die gewählte Auswahl.</div>';
+            return;
+        }
+
+        // Separate HZ (thin lines) from non-HZ (thick lines, own Y scale)
+        var hzSeries = [];
+        var otherSeries = [];
+
+        if (isSumMode()) {
+            // Sum by Einheit mode: one series per Einheit
+            var einheitSeries = prepareSumByEinheit();
+            if (!einheitSeries.length) {
+                chartEl.innerHTML = '<div class="no-data">Keine Werte für Σ Einheit.</div>';
+                return;
+            }
+            einheitSeries.forEach(function(s) {
+                if (s.isHZSum) {
+                    hzSeries.push(s);
+                } else {
+                    otherSeries.push(s);
+                }
+            });
+        } else {
+            meters.forEach(function(m) {
+                var s = prepareSeriesData(m.nr);
+                if (s.points.length === 0) return;
+                if (isHZ(m)) {
+                    hzSeries.push(s);
+                } else {
+                    otherSeries.push(s);
+                }
+            });
+        }
+
+        if (!hzSeries.length && !otherSeries.length) {
+            chartEl.innerHTML = '<div class="no-data">Keine Werte für die gewählte Kombination vorhanden.</div>';
+            return;
+        }
+
+        // Dimensions
+        var containerWidth = chartEl.clientWidth || 600;
+        var isMobile = containerWidth < 500;
+        var hasRightAxis = otherSeries.length > 0 && hzSeries.length > 0;
+        var margin = { top: 20, right: hasRightAxis ? (isMobile ? 50 : 60) : 20, bottom: isMobile ? 50 : 40, left: hzSeries.length ? (isMobile ? 45 : 55) : (isMobile ? 45 : 55) };
+        var width = containerWidth - margin.left - margin.right;
+        var height = (isMobile ? 260 : 360) - margin.top - margin.bottom;
+
+        // Collect all dates for X domain
+        var allPoints = [];
+        hzSeries.forEach(function(s) { allPoints = allPoints.concat(s.points); });
+        otherSeries.forEach(function(s) { allPoints = allPoints.concat(s.points); });
+
+        if (!allPoints.length) {
+            chartEl.innerHTML = '<div class="no-data">Keine Werte vorhanden.</div>';
+            return;
+        }
+
+        var xExtent = d3.extent(allPoints, function(d) { return d.date; });
+        var xRange = xExtent[1] - xExtent[0];
+        var xPad = Math.max(xRange * 0.05, 86400000 * 30);
+        var xDomain = [new Date(xExtent[0] - xPad), new Date(+xExtent[1] + xPad)];
+        var x = d3.scaleTime().domain(xDomain).range([0, width]);
+
+        // Y scale for HZ lines (left axis)
+        var yHZ = null;
+        if (hzSeries.length) {
+            var hzPoints = [];
+            hzSeries.forEach(function(s) { hzPoints = hzPoints.concat(s.points); });
+            var maxHZ = d3.max(hzPoints, function(d) { return d.value; }) || 0;
+            var minHZ = d3.min(hzPoints, function(d) { return d.value; }) || 0;
+            var yMinHZ = Math.max(0, minHZ * 0.9);
+            var yMaxHZ = maxHZ * 1.1;
+            yHZ = d3.scaleLinear().domain([yMinHZ, yMaxHZ || 1]).nice().range([height, 0]);
+        }
+
+        // Y scale for other lines (right axis if HZ exists, otherwise left)
+        var yOther = null;
+        if (otherSeries.length) {
+            var otherPoints = [];
+            otherSeries.forEach(function(s) { otherPoints = otherPoints.concat(s.points); });
+            var maxOther = d3.max(otherPoints, function(d) { return d.value; }) || 0;
+            var minOther = d3.min(otherPoints, function(d) { return d.value; }) || 0;
+            var yMinOther = Math.max(0, minOther * 0.9);
+            var yMaxOther = maxOther * 1.1;
+            yOther = d3.scaleLinear().domain([yMinOther, yMaxOther || 1]).nice().range([height, 0]);
+        }
+
+        // SVG
+        var svg = d3.select(chartEl).append('svg')
+            .attr('viewBox', '0 0 ' + (width + margin.left + margin.right) + ' ' + (height + margin.top + margin.bottom))
+            .attr('preserveAspectRatio', 'xMidYMid meet')
+            .style('width', '100%')
+            .style('height', 'auto');
+
+        var g = svg.append('g').attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+
+        // Grid (based on whichever axis is primary)
+        var gridScale = yHZ || yOther;
+        g.append('g').attr('class', 'grid')
+            .call(d3.axisLeft(gridScale).tickSize(-width).tickFormat(''));
+
+        // X-Axis
+        var xAxis = isMobile ? d3.axisBottom(x).ticks(4) : d3.axisBottom(x).ticks(d3.timeMonth.every(3));
+        g.append('g').attr('class', 'axis').attr('transform', 'translate(0,' + height + ')')
+            .call(xAxis)
+            .selectAll('text')
+            .attr('transform', isMobile ? 'rotate(-35)' : '')
+            .style('text-anchor', isMobile ? 'end' : 'middle');
+
+        // Y-Axis left
+        if (yHZ) {
+            var hzAxisLabel = (isSumMode() ? 'Σ Einheit (Faktor × Wert)' : (displayMode === 'weighted' ? 'HZ gewichtet' : 'HZ Zählerstand'));
+            g.append('g').attr('class', 'axis')
+                .call(d3.axisLeft(yHZ).ticks(6))
+                .append('text')
+                .attr('fill', '#07c')
+                .attr('transform', 'rotate(-90)')
+                .attr('y', -margin.left + 12)
+                .attr('x', -height / 2)
+                .attr('text-anchor', 'middle')
+                .attr('font-size', '11px')
+                .text(hzAxisLabel);
+        } else if (yOther) {
+            // Only other series, use left axis
+            var otherOnlyLabel = isSumMode() ? 'Σ Einheit (Faktor × Wert)' : 'Zählerstand';
+            g.append('g').attr('class', 'axis')
+                .call(d3.axisLeft(yOther).ticks(6))
+                .append('text')
+                .attr('fill', otherColors[0])
+                .attr('transform', 'rotate(-90)')
+                .attr('y', -margin.left + 12)
+                .attr('x', -height / 2)
+                .attr('text-anchor', 'middle')
+                .attr('font-size', '11px')
+                .text(otherOnlyLabel);
+        }
+
+        // Y-Axis right (other series, only if HZ also present)
+        if (yOther && yHZ) {
+            var rightLabel = isSumMode() ? 'Σ Einheit (andere)' : 'Andere Zähler';
+            g.append('g').attr('class', 'axis')
+                .attr('transform', 'translate(' + width + ',0)')
+                .call(d3.axisRight(yOther).ticks(5))
+                .append('text')
+                .attr('fill', otherColors[0])
+                .attr('transform', 'rotate(-90)')
+                .attr('y', margin.right - 10)
+                .attr('x', -height / 2)
+                .attr('text-anchor', 'middle')
+                .attr('font-size', '11px')
+                .text(rightLabel);
+        }
+
+        // Tooltip
+        var tooltip = d3.select('body').append('div').attr('class', 'tooltip').style('display', 'none');
+
+        // Helper: make tooltip for a data point
+        function showTooltip(event, d, series) {
+            var label = series.meter ? series.meter.bezeichnung + (series.isSum ? '' : ' [' + (series.meter.typ || '?') + ']') : '';
+            var dateLabel = fmtDate(d.date);
+            var extra = '';
+            if (!series.isSum && displayMode === 'weighted' && series.faktor !== 1) {
+                extra = '<br>Rohwert: ' + fmtNum(d.rawValue) + ' × ' + series.faktor;
+            }
+            if (series.isSum) {
+                label = '<b>' + esc(series.meter.bezeichnung) + '</b>';
+            }
+            tooltip.style('display', 'block')
+                .html(label + '<br><b>' + dateLabel + '</b>: ' + fmtNum(d.value) + extra +
+                    '<br><span style="color:#aaa">(' + d.source + ') Abgelesen: ' + d.datum + ' – klicken zum Öffnen</span>');
+        }
+
+        function dotClick(d) {
+            var vname = param('name');
+            if (vname && d.datum) {
+                window.open('./?name=' + encodeURIComponent(vname) + '&datum=' + encodeURIComponent(d.datum) + '&force=1', '_blank');
+            }
+        }
+
+        // ── Draw other (non-HZ) lines — thick, with value labels ──
+        if (otherSeries.length) {
+            var yScaleOther = (yHZ && yOther) ? yOther : (yOther || yHZ);
+
+            var otherLine = d3.line()
+                .x(function(d) { return x(d.date); })
+                .y(function(d) { return yScaleOther(d.value); });
+
+            otherSeries.forEach(function(series, si) {
+                var color = otherColors[si % otherColors.length];
+
+                if (series.points.length > 1) {
+                    g.append('path')
+                        .datum(series.points)
+                        .attr('class', 'line-path')
+                        .attr('d', otherLine)
+                        .attr('stroke', color)
+                        .attr('stroke-width', 4)
+                        .attr('stroke-dasharray', '8,3')
+                        .attr('opacity', 0.85);
+                }
+
+                // Dots — larger than HZ
+                g.selectAll('.dot-other-' + si)
+                    .data(series.points)
+                    .enter().append('circle')
+                    .attr('class', 'dot')
+                    .attr('cx', function(d) { return x(d.date); })
+                    .attr('cy', function(d) { return yScaleOther(d.value); })
+                    .attr('r', 6)
+                    .attr('fill', color)
+                    .attr('stroke', '#fff')
+                    .attr('stroke-width', 2)
+                    .on('mouseover', function(event, d) { showTooltip(event, d, series); })
+                    .on('mousemove', function(event) {
+                        tooltip.style('left', (event.pageX + 10) + 'px').style('top', (event.pageY - 28) + 'px');
+                    })
+                    .on('mouseout', function() { tooltip.style('display', 'none'); })
+                    .on('click', function(event, d) { dotClick(d); });
+
+                // Value labels at each dot
+                series.points.forEach(function(d) {
+                    var cy = yScaleOther(d.value);
+                    g.append('text')
+                        .attr('x', x(d.date))
+                        .attr('y', cy - 10)
+                        .attr('text-anchor', 'middle')
+                        .attr('font-size', isMobile ? '9px' : '11px')
+                        .attr('fill', color)
+                        .attr('font-weight', '700')
+                        .text(fmtNum(d.value));
+                });
+            });
+        }
+
+        // ── Draw HZ lines — thin, solid (thicker for sum) ──
+        if (hzSeries.length) {
+            var hzLine = d3.line()
+                .x(function(d) { return x(d.date); })
+                .y(function(d) { return yHZ(d.value); });
+
+            hzSeries.forEach(function(series, si) {
+                var color = hzSeries.length > 1 ? hzColors[si % hzColors.length] : '#07c';
+                var strokeW = series.isSum ? 3.5 : 2;
+                var dotR = series.isSum ? 5 : (hzSeries.length > 3 ? 3 : 4);
+
+                if (series.points.length > 1) {
+                    g.append('path')
+                        .datum(series.points)
+                        .attr('class', 'line-path')
+                        .attr('d', hzLine)
+                        .attr('stroke', color)
+                        .attr('stroke-width', strokeW);
+                }
+
+                g.selectAll('.dot-hz-' + si)
+                    .data(series.points)
+                    .enter().append('circle')
+                    .attr('class', 'dot')
+                    .attr('cx', function(d) { return x(d.date); })
+                    .attr('cy', function(d) { return yHZ(d.value); })
+                    .attr('r', dotR)
+                    .attr('fill', color)
+                    .attr('stroke', series.isSum ? '#fff' : 'none')
+                    .attr('stroke-width', series.isSum ? 2 : 0)
+                    .on('mouseover', function(event, d) { showTooltip(event, d, series); })
+                    .on('mousemove', function(event) {
+                        tooltip.style('left', (event.pageX + 10) + 'px').style('top', (event.pageY - 28) + 'px');
+                    })
+                    .on('mouseout', function() { tooltip.style('display', 'none'); })
+                    .on('click', function(event, d) { dotClick(d); });
+
+                // Value labels for sum series
+                if (series.isSum) {
+                    series.points.forEach(function(d) {
+                        var cy = yHZ(d.value);
+                        g.append('text')
+                            .attr('x', x(d.date))
+                            .attr('y', cy - 10)
+                            .attr('text-anchor', 'middle')
+                            .attr('font-size', isMobile ? '9px' : '11px')
+                            .attr('fill', color)
+                            .attr('font-weight', '700')
+                            .text(fmtNum(d.value));
+                    });
+                }
+            });
+        }
+
+        // Legend
+        buildLegend(hzSeries, otherSeries);
+    }
+
+    function buildLegend(hzSeries, otherSeries) {
+        var legendEl = document.getElementById('legend');
+        legendEl.innerHTML = '';
+
+        hzSeries.forEach(function(series, si) {
+            var color = hzSeries.length > 1 ? hzColors[si % hzColors.length] : '#07c';
+            var item = document.createElement('span');
+            item.className = 'legend-item';
+            var swatch = document.createElement('span');
+            swatch.className = 'legend-line';
+            swatch.style.background = color;
+            swatch.style.height = series.isSum ? '4px' : '2px';
+            item.appendChild(swatch);
+            var label = series.meter ? series.meter.bezeichnung : 'Zähler';
+            if (!series.isSum) label += ' [HZ]';
+            var txt = document.createTextNode(label);
+            item.appendChild(txt);
+            legendEl.appendChild(item);
+        });
+
+        otherSeries.forEach(function(series, si) {
+            var color = otherColors[si % otherColors.length];
+            var item = document.createElement('span');
+            item.className = 'legend-item';
+            var swatch = document.createElement('span');
+            swatch.className = 'legend-line';
+            swatch.style.background = color;
+            swatch.style.height = '4px';
+            if (!series.isSum) swatch.style.borderTop = '1px dashed ' + color;
+            item.appendChild(swatch);
+            var label = series.meter ? series.meter.bezeichnung : 'Zähler';
+            if (!series.isSum) {
+                var typLabel = series.meter && series.meter.typ ? ' [' + series.meter.typ + ']' : '';
+                label += typLabel;
+            }
+            var txt = document.createTextNode(label);
+            item.appendChild(txt);
+            legendEl.appendChild(item);
+        });
+    }
+
+    /* ── Resize ─────────────────────────────────────────────── */
+    var resizeTimer;
+    window.addEventListener('resize', function() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function() {
+            if (historyData) drawChart();
+        }, 200);
+    });
+    </script>
+</body>
+</html>

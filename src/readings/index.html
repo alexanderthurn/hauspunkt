@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>Hauspunkt – Ablesung</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font: 15px/1.5 -apple-system, system-ui, sans-serif; background: #fff; color: #222; }
+
+        /* Header */
+        .hdr { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid #ccc; background: #fafafa; position: sticky; top: 0; z-index: 100; }
+        .hdr img { height: 24px; }
+        .hdr .t { flex: 1; font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .hdr a { font-size: 14px; color: #07c; text-decoration: none; }
+        /* Burger Menu */
+        .burger-btn { background: none; border: none; font-size: 20px; cursor: pointer; padding: 2px 6px; color: #555; line-height: 1; }
+        .burger-wrap { position: relative; }
+        .hp-export-menu { position: absolute; top: 100%; right: 0; z-index: 600; min-width: 200px; background: #fff; border: 1px solid #ccc; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); margin-top: 2px; }
+        .hp-menu-item { display: flex; align-items: center; gap: 8px; padding: 7px 12px; font-size: 14px; cursor: pointer; white-space: nowrap; }
+        .hp-menu-item:hover { background: #f0f7ff; }
+        .hp-menu-icon { font-size: 14px; width: 18px; text-align: center; flex-shrink: 0; }
+        .hp-menu-sep { height: 1px; background: #e0e0e0; margin: 2px 0; }
+
+        /* Toolbar */
+        .tbar { display: flex; gap: 6px; padding: 5px 12px; border-bottom: 1px solid #eee; flex-wrap: wrap; align-items: center; }
+        .tbar .lbl { font-size: 13px; color: #999; }
+        .chip { padding: 3px 10px; border-radius: 10px; border: 1px solid #ccc; background: #fff; font-size: 14px; cursor: pointer; color: #555; user-select: none; }
+        .chip.sel { border-color: #07c; background: #07c; color: #fff; }
+        .tbar input[type="date"] { font: inherit; font-size: 14px; border: 1px solid #ccc; border-radius: 3px; padding: 2px 6px; }
+
+        /* Table */
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th, td { border: 1px solid #ddd; padding: 3px 6px; text-align: left; vertical-align: middle; }
+        th { background: #f5f5f5; font-weight: 600; white-space: nowrap; font-size: 13px; }
+        .vi { width: 100%; border: 1px solid #ccc; background: #fff; font: inherit; padding: 3px 4px; outline: none; text-align: center; font-size: 14px; border-radius: 2px; min-width: 60px; }
+        .vi:focus { border-color: #07c; background: #f0f7ff; }
+        .vi.filled { border-color: #2e7d32; background: #f0fff0; }
+        .vi.foreign { border-color: #7b1fa2; background: #f3e5f5; }
+        .vi.foreign.filled { border-color: #7b1fa2; background: #f3e5f5; }
+        .foreign-hint { font-size: 10px; color: #7b1fa2; display: block; line-height: 1.2; }
+        .col-nr { white-space: nowrap; font-weight: 600; font-size: 13px; }
+        .col-typ { font-size: 12px; color: #aaa; white-space: nowrap; }
+        .col-typ-br { display: none; } /* Desktop: Typ als eigene Spalte, kein <br> */
+        .col-desk { } /* Desktop-only Spalten (Haus, Einheit, Typ) */
+        .col-hide { display: none; }
+        .grp-haus { display: none; } /* Desktop: keine Gruppen, stattdessen Spalten */
+        .grp-einheit { display: none; }
+
+        /* Save */
+        .save-bar { padding: 4px 12px; position: sticky; bottom: 0; background: #fff; border-top: 1px solid #eee; }
+        .save-btn { width: auto; padding: 5px 20px; font: inherit; font-size: 14px; font-weight: 600; background: #2e7d32; color: #fff; border: none; border-radius: 3px; cursor: pointer; }
+        .save-btn:disabled { opacity: 0.4; }
+
+        /* States */
+        .hp-err { text-align: center; padding: 2rem 1rem; color: #c62828; font-size: 15px; }
+        .hp-load { text-align: center; padding: 2rem 1rem; color: #888; font-size: 14px; }
+        .hp-ok { text-align: center; padding: 8px; background: #e8f5e9; border-radius: 3px; color: #2e7d32; font-size: 14px; margin: 6px 8px; }
+        #hp-toast { position: fixed; top: 4px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 3px; align-items: center; }
+        .tmsg { padding: 6px 14px; border-radius: 3px; color: #fff; font-size: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+
+        /* ── Mobile: größere Schrift für Smartphones ── */
+        @media (max-width: 600px) {
+            body { font-size: 16px; }
+            .hdr { gap: 8px; padding: 8px 12px; }
+            .hdr img { height: 24px; }
+            .hdr .t { font-size: 16px; }
+            .hdr a { font-size: 14px; }
+            .tbar { gap: 6px; padding: 8px 12px; }
+            .chip { padding: 4px 14px; border-radius: 14px; font-size: 15px; }
+            .tbar input[type="date"] { font-size: 15px; border-radius: 4px; padding: 4px 8px; }
+            table { font-size: 15px; }
+            th, td { padding: 6px 8px; }
+            th { font-size: 14px; }
+            .vi { padding: 8px 6px; font-size: 18px; border-radius: 4px; min-width: auto; }
+            .col-nr { font-size: 14px; }
+            .col-typ-br { display: inline; font-size: 12px; } /* Mobile: Typ unter Bezeichnung */
+            .col-desk { display: none; } /* Mobile: Haus/Einheit/Typ-Spalten verstecken */
+            th.col-desk { display: none; }
+            .grp-haus { display: table-row; } /* Mobile: Gruppen anzeigen */
+            .grp-haus td { background: #fff; font-weight: 600; color: #999; border: none; border-top: 1px solid #e0e0e0; }
+            .grp-einheit { display: table-row; }
+            .grp-einheit td { background: #fff; font-weight: 400; color: #bbb; border: none; }
+            .grp-haus td { font-size: 14px; padding: 10px 8px 2px; }
+            .grp-einheit td { font-size: 12px; padding: 4px 8px 2px; }
+            .save-bar { padding: 8px 12px; }
+            .save-btn { width: 100%; padding: 12px; font-size: 16px; border-radius: 6px; }
+            .hp-err { font-size: 16px; }
+            .hp-load { font-size: 15px; }
+            .hp-ok { font-size: 15px; padding: 10px; margin: 8px 12px; border-radius: 4px; }
+            #hp-toast { top: 8px; gap: 4px; }
+            .tmsg { padding: 8px 16px; border-radius: 6px; font-size: 15px; }
+            .burger-btn { font-size: 22px; padding: 4px 8px; }
+            .hp-menu-item { padding: 10px 16px; font-size: 15px; }
+            .hp-menu-icon { font-size: 16px; }
+            .hp-export-menu { min-width: 220px; }
+        }
+    </style>
+</head>
+<body>
+    <header class="hdr">
+        <a href="#" id="logo-link" style="display:flex"><img src="../common/logo.svg" alt="HP"></a>
+        <span class="t" id="hdr-title">Lade…</span>
+        <span class="burger-wrap" id="burger-wrap"><button class="burger-btn" id="btn-burger">☰</button></span>
+    </header>
+    <div id="app"><div class="hp-load">Lade Zähler…</div></div>
+    <div id="hp-toast"></div>
+
+    <script src="../common/lib/xlsx.full.min.js"></script>
+    <script src="../common/lib/jspdf.umd.min.js"></script>
+    <script src="../common/lib/jspdf.plugin.autotable.min.js"></script>
+    <script src="../common/common.js"></script>
+    <script src="../common/export-import.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+# Betriebssystem
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE / Editor
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Anwendungsdaten (JSON-Dateien mit Nutzerdaten)
+src/admin/data/
+src/readings/data/
+src/readings/uploads/
+
+# PHP
+*.log
+error_log
+
+# Temporäre Dateien
+*.tmp
+*.bak
