@@ -972,19 +972,29 @@ function renderOverview() {
         });
     });
 
-    // M/A Gesamt Logik
+    // M/A Gesamt Logik (periodenbasiert)
+    let periodYears = [];
     if (!isWerteSel || showWerte.includes('M/A Gesamt')) {
-        const latestMA = {};
+        const periodData = {};
+        const yearsFound = new Set();
         readings.forEach(r => {
             const d = r.datum;
             Object.entries(r.werte || {}).forEach(([mid, vals]) => {
                 if (!filteredIds.has(mid)) return;
                 const ma = vals.wertMA || '';
-                if (ma && (!latestMA[mid] || d > latestMA[mid].datum)) latestMA[mid] = { val: ma, datum: d };
+                if (!ma) return;
+                const mObj = meters.find(m => m.nr === mid);
+                const y = getStichtagYear(d, mObj ? mObj.stichtag : '31.12');
+                if (!periodData[y]) periodData[y] = {};
+                if (!periodData[y][mid] || d > periodData[y][mid].datum) periodData[y][mid] = { val: ma, datum: d };
+                yearsFound.add(y);
             });
         });
-        Object.entries(latestMA).forEach(([mid, data]) => {
-            mergedValMap[mid + '|GESAMT'] = { wertMA: data.val, wertAktuell: '', maConflict: false, akConflict: false };
+        periodYears = [...yearsFound].sort((a, b) => b - a);
+        periodYears.forEach(y => {
+            Object.entries(periodData[y]).forEach(([mid, data]) => {
+                mergedValMap[mid + '|P' + y] = { wertMA: data.val, wertAktuell: '', maConflict: false, akConflict: false };
+            });
         });
     }
 
@@ -1000,7 +1010,9 @@ function renderOverview() {
     });
 
     if (!isWerteSel || showWerte.includes('M/A Gesamt')) {
-        displayCols.unshift({ datum: 'GESAMT', sc: 'M/A Gesamt', isFirst: true, isGesamt: true, viewNames: [], ids: [] });
+        periodYears.forEach(y => {
+            displayCols.unshift({ datum: 'P' + y, sc: 'M/A ' + y, isFirst: true, isGesamt: true, viewNames: [], ids: [] });
+        });
     }
 
     if (displayCols.length === 0) {
@@ -1021,7 +1033,7 @@ function renderOverview() {
             return;
         }
         th.style.cursor = 'default';
-        let dateStr = dc.isGesamt ? 'Aktuellster' : HP.formatDate(dc.datum);
+        let dateStr = dc.isGesamt ? 'Stichtag' : HP.formatDate(dc.datum);
 
         // Header: Datum + jeder viewName einzeln als Link
         let headerParts = dateStr;
@@ -1286,18 +1298,29 @@ function getOverviewExportData() {
         });
     });
 
+    // M/A Gesamt Logik (periodenbasiert)
+    let periodYears = [];
     if (!isWerteSel || showWerte.includes('M/A Gesamt')) {
-        const latestMA = {};
+        const periodData = {};
+        const yearsFound = new Set();
         readings.forEach(r => {
             const d = r.datum;
             Object.entries(r.werte || {}).forEach(([mid, vals]) => {
                 if (!filteredIds.has(mid)) return;
                 const ma = vals.wertMA || '';
-                if (ma && (!latestMA[mid] || d > latestMA[mid].datum)) latestMA[mid] = { val: ma, datum: d };
+                if (!ma) return;
+                const mObj = meters.find(m => m.nr === mid);
+                const y = getStichtagYear(d, mObj ? mObj.stichtag : '31.12');
+                if (!periodData[y]) periodData[y] = {};
+                if (!periodData[y][mid] || d > periodData[y][mid].datum) periodData[y][mid] = { val: ma, datum: d };
+                yearsFound.add(y);
             });
         });
-        Object.entries(latestMA).forEach(([mid, data]) => {
-            mergedValMap[mid + '|GESAMT'] = { wertMA: data.val, wertAktuell: '', maConflict: false, akConflict: false };
+        periodYears = [...yearsFound].sort((a, b) => b - a);
+        periodYears.forEach(y => {
+            Object.entries(periodData[y]).forEach(([mid, data]) => {
+                mergedValMap[mid + '|P' + y] = { wertMA: data.val, wertAktuell: '', maConflict: false, akConflict: false };
+            });
         });
     }
 
@@ -1312,7 +1335,9 @@ function getOverviewExportData() {
     });
 
     if (!isWerteSel || showWerte.includes('M/A Gesamt')) {
-        displayCols.unshift({ datum: 'GESAMT', sc: 'M/A Gesamt', isFirst: true, isGesamt: true, viewNames: [], ids: [] });
+        periodYears.forEach(y => {
+            displayCols.unshift({ datum: 'P' + y, sc: 'M/A ' + y, isFirst: true, isGesamt: true, viewNames: [], ids: [] });
+        });
     }
 
     const sorted = filtered.slice().sort((a, b) => {
@@ -1330,7 +1355,7 @@ function exportOverviewCSV() {
     const { sorted, displayCols, mergedValMap } = getOverviewExportData();
     const header = ['Haus', 'Einheit', 'Nr.', 'Bezeichnung', 'Typ', 'Faktor', 'Stichtag'];
     displayCols.forEach(dc => {
-        header.push((dc.isGesamt ? 'Aktuellster' : HP.formatDate(dc.datum)) + (dc.viewNames.length ? ' ' + dc.viewNames.join(' ') : '') + ' ' + dc.sc);
+        header.push((dc.isGesamt ? 'Stichtag' : HP.formatDate(dc.datum)) + (dc.viewNames.length ? ' ' + dc.viewNames.join(' ') : '') + ' ' + dc.sc);
     });
     const rows = [header];
     sorted.forEach(m => {
@@ -1349,7 +1374,7 @@ function exportOverviewExcel() {
     const { sorted, displayCols, mergedValMap } = getOverviewExportData();
     const header = ['Haus', 'Einheit', 'Nr.', 'Bezeichnung', 'Typ', 'Faktor', 'Stichtag'];
     displayCols.forEach(dc => {
-        header.push((dc.isGesamt ? 'Aktuellster' : HP.formatDate(dc.datum)) + (dc.viewNames.length ? ' ' + dc.viewNames.join(' ') : '') + ' ' + dc.sc);
+        header.push((dc.isGesamt ? 'Stichtag' : HP.formatDate(dc.datum)) + (dc.viewNames.length ? ' ' + dc.viewNames.join(' ') : '') + ' ' + dc.sc);
     });
     const rows = [header];
     sorted.forEach(m => {
@@ -1368,7 +1393,7 @@ function exportOverviewPDF() {
     const { sorted, displayCols, mergedValMap } = getOverviewExportData();
     const head = ['Haus', 'Einheit', 'Nr.', 'Bez.', 'Typ', 'Fkt.', 'Sticht.'];
     displayCols.forEach(dc => {
-        const dStr = dc.isGesamt ? 'Aktuellster' : HP.formatDate(dc.datum);
+        const dStr = dc.isGesamt ? 'Stichtag' : HP.formatDate(dc.datum);
         head.push(dStr + (dc.viewNames.length ? '\n' + dc.viewNames.join(' ') : '') + '\n' + dc.sc);
     });
     const body = sorted.map(m => {
@@ -1431,4 +1456,15 @@ function toast(msg, type) {
     t.textContent = msg;
     c.appendChild(t);
     setTimeout(() => t.remove(), 2500);
+}
+
+function getStichtagYear(dateStr, stichtagStr) {
+    if (!stichtagStr || !stichtagStr.includes('.')) stichtagStr = '31.12';
+    const parts = stichtagStr.split('.');
+    const d = parseInt(parts[0]);
+    const m = parseInt(parts[1]);
+    const rDate = new Date(dateStr);
+    const rYear = rDate.getFullYear();
+    const sDateCurrent = new Date(rYear, m - 1, d);
+    return rDate <= sDateCurrent ? rYear - 1 : rYear;
 }
