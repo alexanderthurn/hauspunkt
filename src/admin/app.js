@@ -57,7 +57,7 @@ async function loadAll() {
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('edit') === '1') {
             editMode = true;
-            document.getElementById('p-meters').classList.add('editing');
+            document.body.classList.add('editing');
         }
         // Tab aus URL laden
         const urlTab = urlParams.get('tab');
@@ -278,6 +278,9 @@ function initMeterEvents() {
 function setEditMode(on) {
     editMode = on;
     document.body.classList.toggle('editing', on);
+    const pMeters = document.getElementById('p-meters');
+    if (pMeters) pMeters.classList.toggle('editing', on);
+
     // URL param
     const params = new URLSearchParams(window.location.search);
     if (editMode) params.set('edit', '1'); else params.delete('edit');
@@ -658,8 +661,8 @@ async function saveAllChanges() {
         }
         dirtyRows = {}; origNrMap = {}; newRows = []; deletedNrs = []; forceDateUI.clear();
         updateSaveBar();
-        await loadAll();
         setEditMode(false);
+        await loadAll();
         toast('Gespeichert.', 'ok');
     } catch (e) {
         toast('Fehler: ' + e.message, 'err');
