@@ -54,7 +54,11 @@ if ($action === 'load' && $method === 'GET') {
         }
         if (!empty($filter['typ']) && $m['typ'] !== $filter['typ'])
             continue;
-        if (($m['aktiv'] ?? '1') === '0')
+        $vFrom = $m['validFrom'] ?? '';
+        $vTo = $m['validTo'] ?? '';
+        if (!empty($vFrom) && $datum < $vFrom)
+            continue;
+        if (!empty($vTo) && $datum > $vTo)
             continue;
         $filtered[] = $m;
         $meterNrs[] = $m['nr'];
@@ -271,8 +275,8 @@ if ($action === 'history' && $method === 'GET') {
         }
         if (!empty($filter['typ']) && $m['typ'] !== $filter['typ'])
             continue;
-        if (($m['aktiv'] ?? '1') === '0')
-            continue;
+        // In der Historie zeigen wir alle Zähler, die zur Ansicht gehören. 
+        // Die zeitliche Filterung erfolgt bei der Zuordnung der Werte.
         $filtered[] = $m;
         $meterNrs[] = $m['nr'];
     }

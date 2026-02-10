@@ -483,11 +483,12 @@
             display: none;
         }
 
-        .editing .edit-only {
+        .editing .edit-only:not(th):not(td) {
             display: flex;
         }
 
-        .editing th.edit-only {
+        .editing th.edit-only,
+        .editing td.edit-only {
             display: table-cell;
         }
 

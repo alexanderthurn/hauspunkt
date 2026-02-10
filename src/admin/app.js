@@ -12,6 +12,7 @@ let sortCol = '';
 let sortAsc = true;
 
 const FIELDS = ['haus', 'nr', 'bezeichnung', 'einheit', 'typ', 'faktor', 'stichtag', 'aktiv'];
+const FIELDS_INTERNAL = ['haus', 'nr', 'bezeichnung', 'einheit', 'typ', 'faktor', 'stichtag', 'validFrom', 'validTo'];
 let dirtyRows = {};    // { nr: { field: newValue, ... } }
 let origNrMap = {};    // { nr: origNr } — tracks if nr itself was changed
 let newRows = [];      // [ { tempId, nr, bezeichnung, ... } ]
@@ -22,6 +23,7 @@ let editingViewId = null; // null = keine, 'NEW' = neue Ansicht
 
 // Zähler: Edit-Modus (false = readonly, true = bearbeitbar)
 let editMode = false;
+let forceDateUI = new Set(); // Stores nr or tempId
 
 // ── Init ──────────────────────────────────────────────────────
 
@@ -275,8 +277,7 @@ function initMeterEvents() {
 
 function setEditMode(on) {
     editMode = on;
-    const panel = document.getElementById('p-meters');
-    panel.classList.toggle('editing', editMode);
+    document.body.classList.toggle('editing', on);
     // URL param
     const params = new URLSearchParams(window.location.search);
     if (editMode) params.set('edit', '1'); else params.delete('edit');
@@ -350,26 +351,90 @@ function renderMeters() {
     const tbody = document.getElementById('m-body');
     tbody.innerHTML = '';
 
-    if (editMode) {
-        // ── Editable mode ──
-        list.forEach(m => {
-            const nr = m.nr;
-            const isDel = deletedNrs.includes(nr);
-            const tr = document.createElement('tr');
-            if (isDel) tr.className = 'del';
-            FIELDS.forEach(f => {
-                const td = document.createElement('td');
-                const val = (dirtyRows[nr] && dirtyRows[nr][f] !== undefined) ? dirtyRows[nr][f] : (m[f] || (f === 'stichtag' ? '31.12' : (f === 'aktiv' ? '1' : '')));
+    list.forEach(m => {
+        const nr = m.nr;
+        const isDel = deletedNrs.includes(nr);
+        const tr = document.createElement('tr');
+        if (isDel) tr.className = 'del';
+        FIELDS.forEach(f => {
+            const td = document.createElement('td');
 
-                if (f === 'aktiv') {
-                    const inp = document.createElement('input');
-                    inp.type = 'checkbox';
-                    inp.checked = val === '1';
-                    inp.disabled = isDel;
-                    inp.addEventListener('change', () => onEdit(nr, f, inp.checked ? '1' : '0', m[f] || '1'));
-                    td.appendChild(inp);
-                    td.style.textAlign = 'center';
+            if (f === 'aktiv') {
+                if (editMode) {
+                    const vFrom = (dirtyRows[nr] && dirtyRows[nr].validFrom !== undefined) ? dirtyRows[nr].validFrom : (m.validFrom || '');
+                    const vTo = (dirtyRows[nr] && dirtyRows[nr].validTo !== undefined) ? dirtyRows[nr].validTo : (m.validTo || '');
+
+                    if (!vFrom && !vTo && !forceDateUI.has(nr)) {
+                        const wrap = document.createElement('div');
+                        wrap.style.display = 'flex';
+                        wrap.style.gap = '4px';
+
+                        const bVB = mk('button', 'Von/Bis', 'b b-p');
+                        bVB.onclick = () => { forceDateUI.add(nr); renderMeters(); };
+
+                        const bIn = mk('button', 'Inaktiv', 'b b-d');
+                        bIn.onclick = () => {
+                            onEdit(nr, 'validFrom', '2000-01-01', m.validFrom || '');
+                            onEdit(nr, 'validTo', '2000-01-01', m.validTo || '');
+                            renderMeters();
+                        };
+
+                        wrap.appendChild(bVB);
+                        wrap.appendChild(bIn);
+                        td.appendChild(wrap);
+                    } else {
+                        const wrap = document.createElement('div');
+                        wrap.style.display = 'flex';
+                        wrap.style.flexDirection = 'column';
+                        wrap.style.gap = '2px';
+
+                        const createDateRow = (field, label) => {
+                            const row = document.createElement('div');
+                            row.style.display = 'flex';
+                            row.style.gap = '2px';
+                            row.style.alignItems = 'center';
+                            row.style.fontSize = '11px';
+                            row.innerHTML = `<span style="width:25px">${label}:</span>`;
+
+                            const val = (dirtyRows[nr] && dirtyRows[nr][field] !== undefined) ? dirtyRows[nr][field] : (m[field] || '');
+                            const inp = document.createElement('input');
+                            inp.type = 'date';
+                            inp.value = val;
+                            inp.disabled = isDel;
+                            inp.style.width = '110px';
+                            inp.className = 'ii';
+                            if (dirtyRows[nr] && dirtyRows[nr][field] !== undefined) inp.classList.add('dirty');
+                            inp.addEventListener('change', () => onEdit(nr, field, inp.value, m[field] || ''));
+
+                            const btnH = mk('button', 'H', 'b b-p');
+                            btnH.title = 'Heute';
+                            btnH.onclick = () => { inp.value = new Date().toISOString().slice(0, 10); onEdit(nr, field, inp.value, m[field] || ''); };
+                            btnH.disabled = isDel;
+
+                            const btnC = mk('button', '✕', 'b');
+                            btnC.title = 'Leeren';
+                            btnC.onclick = () => { inp.value = ''; onEdit(nr, field, inp.value, m[field] || ''); };
+                            btnC.disabled = isDel;
+
+                            row.appendChild(inp);
+                            row.appendChild(btnH);
+                            row.appendChild(btnC);
+                            return row;
+                        };
+
+                        wrap.appendChild(createDateRow('validFrom', 'Von'));
+                        wrap.appendChild(createDateRow('validTo', 'Bis'));
+                        td.appendChild(wrap);
+                    }
                 } else {
+                    const isActive = HP.isMeterActive(m);
+                    td.textContent = isActive ? 'Ja' : 'Nein';
+                    td.style.textAlign = 'center';
+                    if (!isActive) td.style.color = '#c62828';
+                }
+            } else {
+                const val = (dirtyRows[nr] && dirtyRows[nr][f] !== undefined) ? dirtyRows[nr][f] : (m[f] || (f === 'stichtag' ? '31.12' : ''));
+                if (editMode) {
                     const inp = document.createElement('input');
                     inp.className = 'ii';
                     inp.value = val;
@@ -380,71 +445,109 @@ function renderMeters() {
                     if (dirtyRows[nr] && dirtyRows[nr][f] !== undefined) inp.classList.add('dirty');
                     inp.addEventListener('input', () => onEdit(nr, f, inp.value, m[f]));
                     td.appendChild(inp);
-                }
-                tr.appendChild(td);
-            });
-            const tdA = document.createElement('td');
-            tdA.style.whiteSpace = 'nowrap';
-            if (isDel) {
-                const btn = mk('button', '↩', 'b b-p');
-                btn.onclick = () => { deletedNrs = deletedNrs.filter(x => x !== nr); updateSaveBar(); renderMeters(); };
-                tdA.appendChild(btn);
-            } else {
-                const btn = mk('button', '✕', 'b b-d');
-                btn.onclick = () => { if (!deletedNrs.includes(nr)) deletedNrs.push(nr); updateSaveBar(); renderMeters(); };
-                tdA.appendChild(btn);
-            }
-            tr.appendChild(tdA);
-            tbody.appendChild(tr);
-        });
-
-        newRows.forEach((row, idx) => {
-            const tr = document.createElement('tr');
-            tr.className = 'new';
-            FIELDS.forEach(f => {
-                const td = document.createElement('td');
-                if (f === 'aktiv') {
-                    const inp = document.createElement('input');
-                    inp.type = 'checkbox';
-                    inp.checked = row[f] !== '0'; // default to active
-                    if (row[f] === undefined) row[f] = '1';
-                    inp.addEventListener('change', () => { row[f] = inp.checked ? '1' : '0'; });
-                    td.appendChild(inp);
-                    td.style.textAlign = 'center';
-                } else {
-                    const inp = document.createElement('input');
-                    inp.className = 'ii';
-                    inp.value = row[f] || '';
-                    inp.placeholder = f;
-                    inp.addEventListener('input', () => { row[f] = inp.value; });
-                    td.appendChild(inp);
-                }
-                tr.appendChild(td);
-            });
-            const tdA = document.createElement('td');
-            const btn = mk('button', '✕', 'b b-d');
-            btn.onclick = () => { newRows.splice(idx, 1); updateSaveBar(); renderMeters(); };
-            tdA.appendChild(btn);
-            tr.appendChild(tdA);
-            tbody.appendChild(tr);
-        });
-    } else {
-        // ── Readonly mode ──
-        list.forEach(m => {
-            const tr = document.createElement('tr');
-            FIELDS.forEach(f => {
-                const td = document.createElement('td');
-                if (f === 'aktiv') {
-                    td.textContent = (m[f] === '0') ? ' Nein' : 'Ja';
-                    td.style.textAlign = 'center';
                 } else {
                     td.textContent = f === 'stichtag' ? (m[f] || '31.12') : (m[f] || '');
                 }
-                tr.appendChild(td);
-            });
-            tbody.appendChild(tr);
+            }
+            tr.appendChild(td);
         });
-    }
+        const tdA = document.createElement('td');
+        tdA.className = 'edit-only';
+        tdA.style.whiteSpace = 'nowrap';
+        if (isDel) {
+            const btn = mk('button', '↩', 'b b-p');
+            btn.onclick = () => { deletedNrs = deletedNrs.filter(x => x !== nr); updateSaveBar(); renderMeters(); };
+            tdA.appendChild(btn);
+        } else {
+            const btn = mk('button', '✕', 'b b-d');
+            btn.onclick = () => { if (!deletedNrs.includes(nr)) deletedNrs.push(nr); updateSaveBar(); renderMeters(); };
+            tdA.appendChild(btn);
+        }
+        tr.appendChild(tdA);
+        tbody.appendChild(tr);
+    });
+
+    newRows.forEach((row, idx) => {
+        const tr = document.createElement('tr');
+        tr.className = 'new';
+        FIELDS.forEach(f => {
+            const td = document.createElement('td');
+            if (f === 'aktiv') {
+                if (!row.validFrom && !row.validTo && !forceDateUI.has(row.tempId)) {
+                    const wrap = document.createElement('div');
+                    wrap.style.display = 'flex';
+                    wrap.style.gap = '4px';
+
+                    const bVB = mk('button', 'Von/Bis', 'b b-p');
+                    bVB.onclick = () => { forceDateUI.add(row.tempId); renderMeters(); };
+
+                    const bIn = mk('button', 'Inaktiv', 'b b-d');
+                    bIn.onclick = () => {
+                        row.validFrom = '2000-01-01';
+                        row.validTo = '2000-01-01';
+                        renderMeters();
+                    };
+
+                    wrap.appendChild(bVB);
+                    wrap.appendChild(bIn);
+                    td.appendChild(wrap);
+                } else {
+                    const wrap = document.createElement('div');
+                    wrap.style.display = 'flex';
+                    wrap.style.flexDirection = 'column';
+                    wrap.style.gap = '2px';
+
+                    const createDateRow = (field, label) => {
+                        const div = document.createElement('div');
+                        div.style.display = 'flex';
+                        div.style.gap = '2px';
+                        div.style.alignItems = 'center';
+                        div.style.fontSize = '11px';
+                        div.innerHTML = `<span style="width:25px">${label}:</span>`;
+
+                        const inp = document.createElement('input');
+                        inp.type = 'date';
+                        inp.value = row[field] || '';
+                        inp.style.width = '110px';
+                        inp.className = 'ii';
+                        inp.addEventListener('change', () => { row[field] = inp.value; });
+
+                        const btnH = mk('button', 'H', 'b b-p');
+                        btnH.title = 'Heute';
+                        btnH.onclick = () => { inp.value = new Date().toISOString().slice(0, 10); row[field] = inp.value; };
+
+                        const btnC = mk('button', '✕', 'b');
+                        btnC.title = 'Leeren';
+                        btnC.onclick = () => { inp.value = ''; row[field] = ''; };
+
+                        div.appendChild(inp);
+                        div.appendChild(btnH);
+                        div.appendChild(btnC);
+                        return div;
+                    };
+
+                    wrap.appendChild(createDateRow('validFrom', 'Von'));
+                    wrap.appendChild(createDateRow('validTo', 'Bis'));
+                    td.appendChild(wrap);
+                }
+            } else {
+                const inp = document.createElement('input');
+                inp.className = 'ii';
+                inp.value = row[f] || '';
+                inp.placeholder = f;
+                inp.addEventListener('input', () => { row[f] = inp.value; });
+                td.appendChild(inp);
+            }
+            tr.appendChild(td);
+        });
+        const tdA = document.createElement('td');
+        tdA.className = 'edit-only';
+        const btn = mk('button', '✕', 'b b-d');
+        btn.onclick = () => { newRows.splice(idx, 1); updateSaveBar(); renderMeters(); };
+        tdA.appendChild(btn);
+        tr.appendChild(tdA);
+        tbody.appendChild(tr);
+    });
 
     // Quick-View Info aktualisieren
     updateQuickViewInfo();
@@ -471,7 +574,7 @@ function onEdit(nr, f, val, orig) {
 
 function addNewRow() {
     const row = { tempId: 'n_' + Date.now() };
-    FIELDS.forEach(f => row[f] = '');
+    FIELDS_INTERNAL.forEach(f => row[f] = '');
     row.stichtag = '31.12'; // Default-Stichtag
 
     // Werte des letzten sichtbaren Zählers übernehmen (außer Nr)
@@ -487,7 +590,7 @@ function addNewRow() {
     }
     if (list.length) {
         const last = list[list.length - 1];
-        FIELDS.forEach(f => { if (f !== 'nr') row[f] = last[f] || ''; });
+        FIELDS_INTERNAL.forEach(f => { if (f !== 'nr') row[f] = last[f] || ''; });
     }
 
     newRows.push(row);
@@ -546,14 +649,14 @@ async function saveAllChanges() {
         // 2. Neue Zeilen speichern
         for (const row of newRows) {
             const data = {};
-            FIELDS.forEach(f => data[f] = row[f] || '');
+            FIELDS_INTERNAL.forEach(f => data[f] = row[f] || '');
             await HP.api(API + '?action=meter_save', { method: 'POST', body: data });
         }
         // 3. Gelöschte Zeilen löschen
         for (const nr of deletedNrs) {
             await HP.api(API + '?action=meter_delete', { method: 'POST', body: { nr } });
         }
-        dirtyRows = {}; origNrMap = {}; newRows = []; deletedNrs = [];
+        dirtyRows = {}; origNrMap = {}; newRows = []; deletedNrs = []; forceDateUI.clear();
         updateSaveBar();
         await loadAll();
         setEditMode(false);
@@ -1150,7 +1253,7 @@ function renderOverview() {
             const val = (dc.sc === 'M/A' || dc.isGesamt) ? (v.wertMA || '') : (v.wertAktuell || '');
             return val !== '';
         });
-        const isActive = m.aktiv !== '0';
+        const isActive = HP.isMeterActive(m, dc.datum);
         if (!isActive && !hasAnyData) return;
 
         const tr = document.createElement('tr');
@@ -1252,18 +1355,18 @@ function getFilteredMetersForExport() {
 
 function exportMetersCSV() {
     const list = getFilteredMetersForExport();
-    const header = ['Haus', 'Nr', 'Bezeichnung', 'Einheit', 'Typ', 'Faktor', 'Stichtag'];
+    const header = ['Haus', 'Nr', 'Bezeichnung', 'Einheit', 'Typ', 'Faktor', 'Stichtag', 'Gültig von', 'Gültig bis'];
     const rows = [header];
-    list.forEach(m => rows.push([m.haus, m.nr, m.bezeichnung, m.einheit, m.typ, m.faktor || '', m.stichtag || '31.12']));
+    list.forEach(m => rows.push([m.haus, m.nr, m.bezeichnung, m.einheit, m.typ, m.faktor || '', m.stichtag || '31.12', m.validFrom || '', m.validTo || '']));
     HPExport.exportCSV(rows, 'zaehler.csv');
     toast('CSV exportiert.', 'ok');
 }
 
 function exportMetersExcel() {
     const list = getFilteredMetersForExport();
-    const header = ['Haus', 'Nr', 'Bezeichnung', 'Einheit', 'Typ', 'Faktor', 'Stichtag'];
+    const header = ['Haus', 'Nr', 'Bezeichnung', 'Einheit', 'Typ', 'Faktor', 'Stichtag', 'Gültig von', 'Gültig bis'];
     const rows = [header];
-    list.forEach(m => rows.push([m.haus, m.nr, m.bezeichnung, m.einheit, m.typ, m.faktor || '', m.stichtag || '31.12']));
+    list.forEach(m => rows.push([m.haus, m.nr, m.bezeichnung, m.einheit, m.typ, m.faktor || '', m.stichtag || '31.12', m.validFrom || '', m.validTo || '']));
     HPExport.exportExcel(rows, 'zaehler.xlsx', 'Zähler');
     toast('Excel exportiert.', 'ok');
 }
@@ -1302,7 +1405,9 @@ async function importMetersFromRows(rows) {
         'einheit': 'einheit', 'wohnung': 'einheit',
         'typ': 'typ', 'type': 'typ', 'art': 'typ',
         'faktor': 'faktor', 'factor': 'faktor', 'umrechnungsfaktor': 'faktor',
-        'stichtag': 'stichtag', 'deadline': 'stichtag', 'abrechnungsstichtag': 'stichtag'
+        'stichtag': 'stichtag', 'deadline': 'stichtag', 'abrechnungsstichtag': 'stichtag',
+        'validfrom': 'validFrom', 'von': 'validFrom', 'gültig von': 'validFrom', 'gueltig von': 'validFrom',
+        'validto': 'validTo', 'bis': 'validTo', 'gültig bis': 'validTo', 'gueltig bis': 'validTo'
     };
     const mapped = rows.map(r => {
         const m = {};
@@ -1319,7 +1424,7 @@ async function importMetersFromRows(rows) {
     for (const m of mapped) {
         await HP.api(API + '?action=meter_save', {
             method: 'POST',
-            body: { nr: m.nr, bezeichnung: m.bezeichnung || '', haus: m.haus || '', einheit: m.einheit || '', typ: m.typ || '', faktor: m.faktor || '', stichtag: m.stichtag || '' }
+            body: { nr: m.nr, bezeichnung: m.bezeichnung || '', haus: m.haus || '', einheit: m.einheit || '', typ: m.typ || '', faktor: m.faktor || '', stichtag: m.stichtag || '', validFrom: m.validFrom || '', validTo: m.validTo || '' }
         });
     }
     await loadAll();
@@ -1436,7 +1541,7 @@ function getOverviewExportData() {
             const val = (dc.sc === 'M/A' || dc.isGesamt) ? (v.wertMA || '') : (v.wertAktuell || '');
             return val !== '';
         });
-        const isActive = m.aktiv !== '0';
+        const isActive = HP.isMeterActive(m, dc.datum);
         return isActive || hasAnyData;
     }).sort((a, b) => {
         let cmp = (a.haus || '').localeCompare(b.haus || '', 'de');
@@ -1451,13 +1556,13 @@ function getOverviewExportData() {
 
 function exportOverviewCSV() {
     const { sorted, displayCols, mergedValMap } = getOverviewExportData();
-    const header = ['Haus', 'Einheit', 'Nr.', 'Bezeichnung', 'Typ', 'Faktor', 'Stichtag'];
+    const header = ['Haus', 'Einheit', 'Nr.', 'Bezeichnung', 'Typ', 'Faktor', 'Stichtag', 'Gültig von', 'Gültig bis'];
     displayCols.forEach(dc => {
         header.push((dc.isGesamt ? 'Stichtag' : HP.formatDate(dc.datum)) + (dc.viewNames.length ? ' ' + dc.viewNames.join(' ') : '') + ' ' + dc.sc);
     });
     const rows = [header];
     sorted.forEach(m => {
-        const row = [m.haus, m.einheit, m.nr, m.bezeichnung, m.typ, m.faktor || '', m.stichtag || '31.12'];
+        const row = [m.haus, m.einheit, m.nr, m.bezeichnung, m.typ, m.faktor || '', m.stichtag || '31.12', m.validFrom || '', m.validTo || ''];
         displayCols.forEach(dc => {
             const v = mergedValMap[m.nr + '|' + dc.datum];
             row.push(v ? ((dc.sc === 'M/A' || dc.isGesamt) ? (v.wertMA || '') : (v.wertAktuell || '')) : '');
@@ -1470,13 +1575,13 @@ function exportOverviewCSV() {
 
 function exportOverviewExcel() {
     const { sorted, displayCols, mergedValMap } = getOverviewExportData();
-    const header = ['Haus', 'Einheit', 'Nr.', 'Bezeichnung', 'Typ', 'Faktor', 'Stichtag'];
+    const header = ['Haus', 'Einheit', 'Nr.', 'Bezeichnung', 'Typ', 'Faktor', 'Stichtag', 'Gültig von', 'Gültig bis'];
     displayCols.forEach(dc => {
         header.push((dc.isGesamt ? 'Stichtag' : HP.formatDate(dc.datum)) + (dc.viewNames.length ? ' ' + dc.viewNames.join(' ') : '') + ' ' + dc.sc);
     });
     const rows = [header];
     sorted.forEach(m => {
-        const row = [m.haus, m.einheit, m.nr, m.bezeichnung, m.typ, m.faktor || '', m.stichtag || '31.12'];
+        const row = [m.haus, m.einheit, m.nr, m.bezeichnung, m.typ, m.faktor || '', m.stichtag || '31.12', m.validFrom || '', m.validTo || ''];
         displayCols.forEach(dc => {
             const v = mergedValMap[m.nr + '|' + dc.datum];
             row.push(v ? ((dc.sc === 'M/A' || dc.isGesamt) ? (v.wertMA || '') : (v.wertAktuell || '')) : '');
@@ -1489,13 +1594,13 @@ function exportOverviewExcel() {
 
 function exportOverviewPDF() {
     const { sorted, displayCols, mergedValMap } = getOverviewExportData();
-    const head = ['Haus', 'Einheit', 'Nr.', 'Bez.', 'Typ', 'Fkt.', 'Sticht.'];
+    const head = ['Haus', 'Einheit', 'Nr.', 'Bez.', 'Typ', 'Fkt.', 'Sticht.', 'v.', 'b.'];
     displayCols.forEach(dc => {
         const dStr = dc.isGesamt ? 'Stichtag' : HP.formatDate(dc.datum);
         head.push(dStr + (dc.viewNames.length ? '\n' + dc.viewNames.join(' ') : '') + '\n' + dc.sc);
     });
     const body = sorted.map(m => {
-        const row = [m.haus, m.einheit, m.nr, m.bezeichnung, m.typ, m.faktor || '', m.stichtag || '31.12'];
+        const row = [m.haus, m.einheit, m.nr, m.bezeichnung, m.typ, m.faktor || '', m.stichtag || '31.12', m.validFrom || '', m.validTo || ''];
         displayCols.forEach(dc => {
             const v = mergedValMap[m.nr + '|' + dc.datum];
             row.push(v ? ((dc.sc === 'M/A' || dc.isGesamt) ? (v.wertMA || '') : (v.wertAktuell || '')) : '');

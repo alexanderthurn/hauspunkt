@@ -142,5 +142,17 @@ const HP = {
         link.download = filename;
         link.click();
         URL.revokeObjectURL(link.href);
+    },
+
+    /**
+     * Prüft ob ein Zähler an einem bestimmten Datum aktiv ist.
+     */
+    isMeterActive(meter, datum) {
+        if (!datum) datum = this.today();
+        const from = meter.validFrom || '';
+        const to = meter.validTo || '';
+        if (from && datum < from) return false;
+        if (to && datum > to) return false;
+        return true;
     }
 };

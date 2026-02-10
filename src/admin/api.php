@@ -41,6 +41,8 @@ if ($action === 'meter_save' && $method === 'POST') {
         'typ' => (string) ($body['typ'] ?? ''),
         'faktor' => (string) ($body['faktor'] ?? ''),
         'stichtag' => (string) ($body['stichtag'] ?? '31.12'),
+        'validFrom' => (string) ($body['validFrom'] ?? ''),
+        'validTo' => (string) ($body['validTo'] ?? ''),
     ];
 
     if (isset($body['_origNr']) && $origNr !== $nr) {
@@ -263,6 +265,8 @@ if ($action === 'meters_import' && $method === 'POST') {
             'typ' => (string) ($row['typ'] ?? ''),
             'faktor' => (string) ($row['faktor'] ?? $row['factor'] ?? ''),
             'stichtag' => (string) ($row['stichtag'] ?? '31.12'),
+            'validFrom' => (string) ($row['validfrom'] ?? $row['von'] ?? $row['gültig von'] ?? ''),
+            'validTo' => (string) ($row['validto'] ?? $row['bis'] ?? $row['gültig bis'] ?? ''),
         ];
 
         $meters[] = $meter;
