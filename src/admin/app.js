@@ -1266,20 +1266,26 @@ function renderOverview() {
         th.style.cursor = 'default';
         let dateStr = dc.isGesamt ? 'Stichtag' : HP.formatDate(dc.datum);
 
-        // Header: Datum + jeder viewName einzeln als Link
-        let headerParts = dateStr;
-        if (dc.viewNames.length && dc.isFirst) {
-            const nameLinks = dc.viewNames.map(vn => {
+        // Header: Reading-Spalten dreizeilig: Datum | Links+Delete | M/A+Notizen
+        // Stichtag M/A Spalten: einzeilig
+        let label;
+        if (!dc.isGesamt && dc.viewNames.length) {
+            const nameParts = dc.viewNames.map(vn => {
                 const readingUrl = ovBaseUrl + 'readings/?name=' + encodeURIComponent(vn) + '&datum=' + encodeURIComponent(dc.datum) + '&force=1';
                 return '<a href="' + esc(readingUrl) + '" target="_blank" style="color:#07c;text-decoration:none" title="Ablesung ' + esc(vn) + ' öffnen">' + esc(vn) + '</a>';
             });
-            headerParts = dateStr + ' ' + nameLinks.join(' ');
-        }
-        let label = headerParts;
-        label += ' ' + esc(dc.sc);
-        // Delete: alle Reading-IDs für dieses Datum
-        if (dc.isFirst && dc.ids.length) {
-            label += ' <button class="b b-d ov-del" data-rids="' + esc(dc.ids.join('|')) + '" style="font-size:9px;padding:0 4px">✕</button>';
+            label = dateStr + '<br>' + nameParts.join(' ');
+            if (dc.isFirst && dc.ids.length) {
+                label += ' <button class="b b-d ov-del" data-rids="' + esc(dc.ids.join('|')) + '" style="font-size:9px;padding:0 4px">✕</button>';
+            }
+            label += '<br>' + esc(dc.sc);
+            const notizen = (dc.readings || []).map(r => { const n = (r.notizen || '').trim(); return n ? (dc.viewNames && dc.viewNames.length > 1 ? esc(r.viewName || '') + ': ' + esc(n) : esc(n)) : null; }).filter(Boolean);
+            if (notizen.length) label += '<br><span class="ov-notiz" style="display:block;max-width:140px;overflow-wrap:break-word;word-break:break-word">"' + notizen.join('; ') + '"</span>';
+        } else {
+            label = dateStr + ' ' + esc(dc.sc);
+            if (dc.isFirst && dc.ids.length) {
+                label += ' <button class="b b-d ov-del" data-rids="' + esc(dc.ids.join('|')) + '" style="font-size:9px;padding:0 4px">✕</button>';
+            }
         }
         th.innerHTML = label;
         thead.appendChild(th);
@@ -1621,7 +1627,10 @@ function exportOverviewCSV() {
     const { sorted, displayCols, mergedValMap } = getOverviewExportData();
     const header = ['Haus', 'Einheit', 'Bezeichnung', 'Nr.', 'Typ', 'Faktor', 'Stichtag', 'Gültig von', 'Gültig bis'];
     displayCols.forEach(dc => {
-        header.push((dc.isGesamt ? 'Stichtag' : HP.formatDate(dc.datum)) + (dc.viewNames.length ? ' ' + dc.viewNames.join(' ') : '') + ' ' + dc.sc);
+        let h = (dc.isGesamt ? 'Stichtag' : HP.formatDate(dc.datum)) + (dc.viewNames.length ? ' ' + dc.viewNames.join(' ') : '') + ' ' + dc.sc;
+        const notizen = (dc.readings || []).map(r => { const n = (r.notizen || '').trim(); return n ? (dc.viewNames && dc.viewNames.length > 1 ? (r.viewName || '') + ': ' + n : n) : null; }).filter(Boolean);
+        if (notizen.length) h += '\n"' + notizen.join('; ') + '"';
+        header.push(h);
     });
     const rows = [header];
     sorted.forEach(m => {
@@ -1640,7 +1649,10 @@ function exportOverviewExcel() {
     const { sorted, displayCols, mergedValMap } = getOverviewExportData();
     const header = ['Haus', 'Einheit', 'Bezeichnung', 'Nr.', 'Typ', 'Faktor', 'Stichtag', 'Gültig von', 'Gültig bis'];
     displayCols.forEach(dc => {
-        header.push((dc.isGesamt ? 'Stichtag' : HP.formatDate(dc.datum)) + (dc.viewNames.length ? ' ' + dc.viewNames.join(' ') : '') + ' ' + dc.sc);
+        let h = (dc.isGesamt ? 'Stichtag' : HP.formatDate(dc.datum)) + (dc.viewNames.length ? ' ' + dc.viewNames.join(' ') : '') + ' ' + dc.sc;
+        const notizen = (dc.readings || []).map(r => { const n = (r.notizen || '').trim(); return n ? (dc.viewNames && dc.viewNames.length > 1 ? (r.viewName || '') + ': ' + n : n) : null; }).filter(Boolean);
+        if (notizen.length) h += '\n"' + notizen.join('; ') + '"';
+        header.push(h);
     });
     const rows = [header];
     sorted.forEach(m => {
@@ -1659,8 +1671,11 @@ function exportOverviewPDF() {
     const { sorted, displayCols, mergedValMap } = getOverviewExportData();
     const head = ['Haus', 'Einheit', 'Bez.', 'Nr.', 'Typ', 'Fkt.', 'Sticht.', 'v.', 'b.'];
     displayCols.forEach(dc => {
-        const dStr = dc.isGesamt ? 'Stichtag' : HP.formatDate(dc.datum);
-        head.push(dStr + (dc.viewNames.length ? '\n' + dc.viewNames.join(' ') : '') + '\n' + dc.sc);
+        let dStr = dc.isGesamt ? 'Stichtag' : HP.formatDate(dc.datum);
+        dStr += (dc.viewNames.length ? '\n' + dc.viewNames.join(' ') : '') + '\n' + dc.sc;
+        const notizen = (dc.readings || []).map(r => { const n = (r.notizen || '').trim(); return n ? (dc.viewNames && dc.viewNames.length > 1 ? (r.viewName || '') + ': ' + n : n) : null; }).filter(Boolean);
+        if (notizen.length) dStr += '\n"' + notizen.join('; ') + '"';
+        head.push(dStr);
     });
     const body = sorted.map(m => {
         const row = [m.haus, m.einheit, m.bezeichnung, m.nr, m.typ, m.faktor || '', m.stichtag || '31.12', m.validFrom || '', m.validTo || ''];

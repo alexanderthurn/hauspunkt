@@ -41,6 +41,11 @@ async function init() {
                 showMA = colList.indexOf('ma') !== -1;
                 showAktuell = colList.indexOf('aktuell') !== -1;
             }
+        } else {
+            // Kein cols-Parameter: M/A immer, Aktuell nur wenn bereits Daten vorhanden
+            showMA = true;
+            var hasAktuellData = Object.values(viewData.existing || {}).some(function (e) { return (e.wertAktuell || '').trim() !== ''; });
+            showAktuell = hasAktuellData;
         }
 
         // Datum aus URL laden — nachfragen wenn nicht heute (außer force=1)
@@ -56,6 +61,10 @@ async function init() {
                     var data2 = await res2.json();
                     viewData.existing = data2.existing || {};
                     viewData.foreignSources = data2.foreignSources || {};
+                    if (urlParams.get('cols') === null) {
+                        var hasAk = Object.values(viewData.existing || {}).some(function (e) { return (e.wertAktuell || '').trim() !== ''; });
+                        showAktuell = hasAk;
+                    }
                 }
             } else {
                 // Datum aus URL entfernen

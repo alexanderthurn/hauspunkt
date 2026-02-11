@@ -69,27 +69,53 @@ if ($action === 'load' && $method === 'GET') {
     $existing = [];
     $foreignSources = []; // meterId → viewName des fremden Ablesers
 
+    // Hilfsfunktion: erlaubte Zähler-IDs für eine Ansicht (Filter-Respekt, wie in Messwerte)
+    $getViewAllowedNrs = function ($viewName) use ($views, $meters, $datum) {
+        foreach ($views as $v) {
+            if (($v['name'] ?? '') !== $viewName) continue;
+            $f = $v['filter'] ?? [];
+            $out = [];
+            foreach ($meters as $m) {
+                if (!empty($f['haus']) && ($m['haus'] ?? '') !== $f['haus']) continue;
+                if (!empty($f['einheit']) && is_array($f['einheit']) && count($f['einheit']) > 0) {
+                    if (!in_array($m['einheit'] ?? '', $f['einheit'])) continue;
+                }
+                if (!empty($f['typ']) && ($m['typ'] ?? '') !== $f['typ']) continue;
+                $vFrom = $m['validFrom'] ?? '';
+                $vTo = $m['validTo'] ?? '';
+                if (!empty($vFrom) && $datum < $vFrom) continue;
+                if (!empty($vTo) && $datum > $vTo) continue;
+                $out[] = $m['nr'];
+            }
+            return $out;
+        }
+        return [];
+    };
+
     // Zuerst: Werte von anderen Ablesern sammeln
+    // Nur Werte verwenden, wo der Zähler zur Ansicht des Readings gehört (keine Vermischung von Häusern)
     foreach ($readings as $r) {
         if ($r['datum'] !== $datum)
             continue;
         if (($r['viewName'] ?? '') === $name)
             continue; // eigene Werte kommen danach
+        $readingViewAllowed = $getViewAllowedNrs($r['viewName'] ?? '');
         $werte = $r['werte'] ?? [];
         foreach ($werte as $meterId => $vals) {
-            if (in_array($meterId, $meterNrs)) {
-                $ma = $vals['wertMA'] ?? '';
-                $ak = $vals['wertAktuell'] ?? '';
-                if ($ma !== '' || $ak !== '') {
-                    // Nur setzen, wenn noch nicht von einem anderen fremden Ableser belegt
-                    if (!isset($existing[$meterId])) {
-                        $existing[$meterId] = [
-                            'wertMA' => $ma,
-                            'wertAktuell' => $ak,
-                            'source' => $r['viewName'] ?? '',
-                        ];
-                        $foreignSources[$meterId] = $r['viewName'] ?? '';
-                    }
+            if (!in_array($meterId, $meterNrs))
+                continue; // Meter gehört nicht zur ladenden Ansicht
+            if (!in_array($meterId, $readingViewAllowed))
+                continue; // Zähler gehört nicht zur Ansicht des Readings → ignorieren
+            $ma = $vals['wertMA'] ?? '';
+            $ak = $vals['wertAktuell'] ?? '';
+            if ($ma !== '' || $ak !== '') {
+                if (!isset($existing[$meterId])) {
+                    $existing[$meterId] = [
+                        'wertMA' => $ma,
+                        'wertAktuell' => $ak,
+                        'source' => $r['viewName'] ?? '',
+                    ];
+                    $foreignSources[$meterId] = $r['viewName'] ?? '';
                 }
             }
         }
@@ -99,6 +125,7 @@ if ($action === 'load' && $method === 'GET') {
     $notizen = '';
     $readingId = '';
     $pdf = '';
+    $ownViewAllowed = $getViewAllowedNrs($name);
     foreach ($readings as $r) {
         if ($r['datum'] === $datum && ($r['viewName'] ?? '') === $name) {
             $notizen = $r['notizen'] ?? '';
@@ -106,14 +133,15 @@ if ($action === 'load' && $method === 'GET') {
             $pdf = $r['pdf'] ?? '';
             $werte = $r['werte'] ?? [];
             foreach ($werte as $meterId => $vals) {
-                if (in_array($meterId, $meterNrs)) {
-                    $existing[$meterId] = [
-                        'wertMA' => $vals['wertMA'] ?? '',
-                        'wertAktuell' => $vals['wertAktuell'] ?? '',
-                    ];
-                    // Eigene Werte → kein fremder Source mehr
-                    unset($foreignSources[$meterId]);
-                }
+                if (!in_array($meterId, $meterNrs))
+                    continue;
+                if (!in_array($meterId, $ownViewAllowed))
+                    continue; // Fremde Zähler im eigenen Reading ignorieren
+                $existing[$meterId] = [
+                    'wertMA' => $vals['wertMA'] ?? '',
+                    'wertAktuell' => $vals['wertAktuell'] ?? '',
+                ];
+                unset($foreignSources[$meterId]);
             }
             break;
         }
@@ -318,40 +346,58 @@ if ($action === 'history' && $method === 'GET') {
         $meterNrs[] = $m['nr'];
     }
 
-    // Alle Readings laden und Werte für die Zähler dieser Ansicht sammeln
-    // Einbezogen werden ALLE Readings (auch von anderen Ablesern), sofern
-    // sie Werte für Zähler enthalten, auf die diese Ansicht Zugriff hat.
-    // Pro Datum werden die Werte zusammengeführt: eigene Ansicht hat Priorität,
-    // dann werden fehlende Werte von anderen Ablesern ergänzt.
+    // Hilfsfunktion: erlaubte Zähler-IDs für eine Ansicht (Filter-Respekt)
+    $getViewAllowedNrs = function ($viewName, $datum) use ($views, $meters) {
+        foreach ($views as $v) {
+            if (($v['name'] ?? '') !== $viewName) continue;
+            $f = $v['filter'] ?? [];
+            $out = [];
+            foreach ($meters as $m) {
+                if (empty($m['nr'])) continue;
+                if (!empty($f['haus']) && ($m['haus'] ?? '') !== $f['haus']) continue;
+                if (!empty($f['einheit']) && is_array($f['einheit']) && count($f['einheit']) > 0) {
+                    if (!in_array($m['einheit'] ?? '', $f['einheit'])) continue;
+                }
+                if (!empty($f['typ']) && ($m['typ'] ?? '') !== $f['typ']) continue;
+                $vFrom = $m['validFrom'] ?? '';
+                $vTo = $m['validTo'] ?? '';
+                if (!empty($vFrom) && $datum < $vFrom) continue;
+                if (!empty($vTo) && $datum > $vTo) continue;
+                $out[] = $m['nr'];
+            }
+            return $out;
+        }
+        return [];
+    };
+
     $allReadings = hp_read_json(__DIR__ . '/data/readings.json');
 
     // Schritt 1: alle Readings pro Datum sammeln (eigene zuerst)
-    $byDate = []; // datum → [ 'own' => werte, 'others' => [ werte, ... ] ]
+    // Nur Werte verwenden, wo der Zähler zur Ansicht des Readings gehört
+    $byDate = [];
     foreach ($allReadings as $r) {
+        $d = $r['datum'];
+        $readingViewAllowed = $getViewAllowedNrs($r['viewName'] ?? '', $d);
         $werte = $r['werte'] ?? [];
         $relevantWerte = [];
         foreach ($werte as $meterId => $vals) {
-            if (in_array($meterId, $meterNrs)) {
-                $relevantWerte[$meterId] = [
-                    'wertMA' => $vals['wertMA'] ?? '',
-                    'wertAktuell' => $vals['wertAktuell'] ?? '',
-                ];
-            }
+            if (!in_array($meterId, $meterNrs)) continue;
+            if (!in_array($meterId, $readingViewAllowed)) continue;
+            $relevantWerte[$meterId] = [
+                'wertMA' => $vals['wertMA'] ?? '',
+                'wertAktuell' => $vals['wertAktuell'] ?? '',
+            ];
         }
-        if (empty($relevantWerte))
-            continue;
+        if (empty($relevantWerte)) continue;
 
-        $d = $r['datum'];
         if (!isset($byDate[$d])) {
             $byDate[$d] = ['own' => [], 'others' => []];
         }
         if (($r['viewName'] ?? '') === $name) {
-            // Eigene Werte
             foreach ($relevantWerte as $mid => $v) {
                 $byDate[$d]['own'][$mid] = $v;
             }
         } else {
-            // Fremde Werte
             $byDate[$d]['others'][] = $relevantWerte;
         }
     }
