@@ -41,6 +41,7 @@ if ($action === 'load' && $method === 'GET') {
     }
 
     // Zähler laden und filtern
+    $datum = trim($_GET['datum'] ?? date('Y-m-d'));
     $meters = hp_read_json(__DIR__ . '/../admin/data/meters.json');
     $filter = $view['filter'] ?? [];
     $filtered = [];
@@ -64,10 +65,6 @@ if ($action === 'load' && $method === 'GET') {
         $meterNrs[] = $m['nr'];
     }
 
-    // Bestehende Readings für gewähltes Datum laden
-    // 1) Werte von ALLEN Ablesern für diesen Tag sammeln (für die Zähler, auf die diese Ansicht Zugriff hat)
-    // 2) Eigene Werte haben Priorität und überschreiben fremde
-    $datum = trim($_GET['datum'] ?? date('Y-m-d'));
     $readings = hp_read_json(__DIR__ . '/data/readings.json');
     $existing = [];
     $foreignSources = []; // meterId → viewName des fremden Ablesers

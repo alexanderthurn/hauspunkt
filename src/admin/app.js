@@ -298,15 +298,15 @@ function syncFiltersToUrl() {
     const haus = getSelVals(document.getElementById(isOverview ? 'of-haus' : 'f-haus'));
     const einheit = getSelVals(document.getElementById(isOverview ? 'of-einheit' : 'f-einheit'));
     const typ = getSelVals(document.getElementById(isOverview ? 'of-typ' : 'f-typ'));
-    if (haus.length) params.set('haus', haus.join(',')); else params.delete('haus');
-    if (einheit.length) params.set('einheit', einheit.join(',')); else params.delete('einheit');
-    if (typ.length) params.set('typ', typ.join(',')); else params.delete('typ');
+    if (haus.length) params.set('haus', haus.join('|')); else params.delete('haus');
+    if (einheit.length) params.set('einheit', einheit.join('|')); else params.delete('einheit');
+    if (typ.length) params.set('typ', typ.join('|')); else params.delete('typ');
     // Jahr-Filter
     const jahre = getSelectedYear();
-    if (jahre.length) params.set('jahr', jahre.join(',')); else params.delete('jahr');
+    if (jahre.length) params.set('jahr', jahre.join('|')); else params.delete('jahr');
     // Werte-Filter
     const werte = getSelVals(document.getElementById('of-werte'));
-    if (werte.length) params.set('werte', werte.join(',')); else params.delete('werte');
+    if (werte.length) params.set('werte', werte.join('|')); else params.delete('werte');
     params.delete('von'); params.delete('bis');
     const qs = params.toString();
     const newUrl = window.location.pathname + (qs ? '?' + qs : '');
@@ -315,18 +315,18 @@ function syncFiltersToUrl() {
 
 function loadFiltersFromUrl() {
     const params = new URLSearchParams(window.location.search);
-    const haus = (params.get('haus') || '').split(',').filter(Boolean);
-    const einheit = (params.get('einheit') || '').split(',').filter(Boolean);
-    const typ = (params.get('typ') || '').split(',').filter(Boolean);
+    const haus = (params.get('haus') || '').split('|').filter(Boolean);
+    const einheit = (params.get('einheit') || '').split('|').filter(Boolean);
+    const typ = (params.get('typ') || '').split('|').filter(Boolean);
     setSelVals(document.getElementById('f-haus'), haus);
     setSelVals(document.getElementById('f-einheit'), einheit);
     setSelVals(document.getElementById('f-typ'), typ);
     setSelVals(document.getElementById('of-haus'), haus);
     setSelVals(document.getElementById('of-einheit'), einheit);
     setSelVals(document.getElementById('of-typ'), typ);
-    const werte = (params.get('werte') || '').split(',').filter(Boolean);
+    const werte = (params.get('werte') || '').split('|').filter(Boolean);
     setSelVals(document.getElementById('of-werte'), werte);
-    const jahre = (params.get('jahr') || '').split(',').filter(Boolean);
+    const jahre = (params.get('jahr') || '').split('|').filter(Boolean);
     setSelVals(document.getElementById('of-jahr'), jahre);
     // Jahr-Filter (wird in refreshYearFilter via URL gesetzt)
 }
@@ -1059,7 +1059,7 @@ function refreshYearFilter() {
 
     // URL-Wert wiederherstellen
     const params = new URLSearchParams(window.location.search);
-    const urlJahre = (params.get('jahr') || '').split(',').filter(Boolean);
+    const urlJahre = (params.get('jahr') || '').split('|').filter(Boolean);
     if (urlJahre.length) mselSetVals('of-jahr', urlJahre);
 }
 
@@ -1223,7 +1223,7 @@ function renderOverview() {
         label += ' ' + esc(dc.sc);
         // Delete: alle Reading-IDs für dieses Datum
         if (dc.isFirst && dc.ids.length) {
-            label += ' <button class="b b-d ov-del" data-rids="' + esc(dc.ids.join(',')) + '" style="font-size:9px;padding:0 4px">✕</button>';
+            label += ' <button class="b b-d ov-del" data-rids="' + esc(dc.ids.join('|')) + '" style="font-size:9px;padding:0 4px">✕</button>';
         }
         th.innerHTML = label;
         thead.appendChild(th);
@@ -1232,7 +1232,7 @@ function renderOverview() {
     // Delete-Buttons verdrahten (jetzt mit mehreren IDs)
     document.querySelectorAll('.ov-del').forEach(btn => {
         btn.addEventListener('click', () => {
-            const ids = (btn.dataset.rids || '').split(',').filter(Boolean);
+            const ids = (btn.dataset.rids || '').split('|').filter(Boolean);
             if (ids.length) deleteReadings(ids);
         });
     });
@@ -1256,7 +1256,7 @@ function renderOverview() {
             const val = (dc.sc === 'M/A' || dc.isGesamt) ? (v.wertMA || '') : (v.wertAktuell || '');
             return val !== '';
         });
-        const isActive = HP.isMeterActive(m, dc.datum);
+        const isActive = displayCols.some(dc => HP.isMeterActive(m, dc.datum));
         if (!isActive && !hasAnyData) return;
 
         const tr = document.createElement('tr');
@@ -1544,7 +1544,7 @@ function getOverviewExportData() {
             const val = (dc.sc === 'M/A' || dc.isGesamt) ? (v.wertMA || '') : (v.wertAktuell || '');
             return val !== '';
         });
-        const isActive = HP.isMeterActive(m, dc.datum);
+        const isActive = displayCols.some(dc => HP.isMeterActive(m, dc.datum));
         return isActive || hasAnyData;
     }).sort((a, b) => {
         let cmp = (a.haus || '').localeCompare(b.haus || '', 'de');
