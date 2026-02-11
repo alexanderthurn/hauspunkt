@@ -37,7 +37,7 @@ async function init() {
             showMA = colList.indexOf('ma') !== -1;
             showAktuell = colList.indexOf('aktuell') !== -1;
         } else {
-            // cols=none oder kein cols: wenn bereits Werte da, Spalten anzeigen; sonst Buttons
+            // cols=none oder kein cols: wenn bereits Werte da, Spalten anzeigen; sonst Buttons (Spalte wählen)
             var ex = viewData.existing || {};
             var hasMA = Object.values(ex).some(function (e) { return (e.wertMA || '').trim() !== ''; });
             var hasAk = Object.values(ex).some(function (e) { return (e.wertAktuell || '').trim() !== ''; });
@@ -45,8 +45,8 @@ async function init() {
                 showMA = hasMA;
                 showAktuell = hasAk;
             } else {
-                showMA = true;
-                showAktuell = true;
+                showMA = false;
+                showAktuell = false;
             }
         }
 
@@ -69,6 +69,7 @@ async function init() {
                         var hasMA = Object.values(ex).some(function (e) { return (e.wertMA || '').trim() !== ''; });
                         var hasAk = Object.values(ex).some(function (e) { return (e.wertAktuell || '').trim() !== ''; });
                         if (hasMA || hasAk) { showMA = hasMA; showAktuell = hasAk; }
+                        else { showMA = false; showAktuell = false; }
                     }
                 }
             } else {
@@ -304,7 +305,6 @@ async function onDatumChange(val) {
     currentDatum = val;
     syncDatumToUrl();
     var name = new URLSearchParams(window.location.search).get('name');
-    var urlParams = new URLSearchParams(window.location.search);
     try {
         var res = await fetch(API + '?action=load&name=' + encodeURIComponent(name) + '&datum=' + encodeURIComponent(val));
         if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -316,18 +316,18 @@ async function onDatumChange(val) {
         viewData.foreignSources = data.foreignSources || {};
         if (data.readingDates) viewData.readingDates = data.readingDates;
         viewData.datum = val;
-        if (urlParams.get('cols') === null || urlParams.get('cols') === 'none') {
-            var ex = viewData.existing || {};
-            var hasMA = Object.values(ex).some(function (e) { return (e.wertMA || '').trim() !== ''; });
-            var hasAk = Object.values(ex).some(function (e) { return (e.wertAktuell || '').trim() !== ''; });
-            if (hasMA || hasAk) {
-                showMA = hasMA;
-                showAktuell = hasAk;
-            } else {
-                showMA = true;
-                showAktuell = true;
-            }
+        // Bei Datumswechsel: Spaltenlogik immer neu starten (nicht vorherige Auswahl übernehmen)
+        var ex = viewData.existing || {};
+        var hasMA = Object.values(ex).some(function (e) { return (e.wertMA || '').trim() !== ''; });
+        var hasAk = Object.values(ex).some(function (e) { return (e.wertAktuell || '').trim() !== ''; });
+        if (hasMA || hasAk) {
+            showMA = hasMA;
+            showAktuell = hasAk;
+        } else {
+            showMA = false;
+            showAktuell = false;
         }
+        syncColsToUrl();
         render();
     } catch (e) {
         toast('Fehler beim Laden: ' + e.message, 'err');
