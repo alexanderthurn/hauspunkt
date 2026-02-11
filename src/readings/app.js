@@ -10,6 +10,8 @@ var viewData = null;
 var showMA = true;
 var showAktuell = false;
 var currentDatum = '';
+var sortColReadings = 'haus';
+var sortAscReadings = true;
 
 document.addEventListener('DOMContentLoaded', init);
 
@@ -74,6 +76,7 @@ async function init() {
         document.getElementById('logo-link').href = window.location.pathname + '?name=' + encodeURIComponent(name);
 
         initBurgerMenu();
+        initReadingsSort();
         render();
     } catch (e) {
         document.getElementById('app').innerHTML = '<div class="hp-err">Ungültiger Link.<br><small style="color:#999">' + esc(e.message) + '</small></div>';
@@ -96,13 +99,30 @@ function render() {
     var foreignSources = viewData.foreignSources || {};
     var locked = isDateLocked();
 
-    // Zähler nach Haus → Einheit sortieren
+    // Zähler nach gewählter Spalte sortieren (M/A und Aktuell: leere Felder = -1)
     var sorted = viewData.meters.slice().sort(function (a, b) {
-        var cmp = (a.haus || '').localeCompare(b.haus || '', 'de');
-        if (cmp !== 0) return cmp;
-        cmp = (a.einheit || '').localeCompare(b.einheit || '', 'de');
-        if (cmp !== 0) return cmp;
-        return (a.bezeichnung || '').localeCompare(b.bezeichnung || '', 'de');
+        var col = sortColReadings || 'haus';
+        var va, vb;
+        if (col === 'ma' || col === 'aktuell') {
+            var key = col === 'ma' ? 'wertMA' : 'wertAktuell';
+            var exA = existing[a.nr] || {};
+            var exB = existing[b.nr] || {};
+            var strA = (exA[key] || '').trim();
+            var strB = (exB[key] || '').trim();
+            va = strA === '' ? -1 : (parseFloat(strA) || strA);
+            vb = strB === '' ? -1 : (parseFloat(strB) || strB);
+            var cmp;
+            if (typeof va === 'number' && typeof vb === 'number') {
+                cmp = va < vb ? -1 : (va > vb ? 1 : 0);
+            } else {
+                cmp = String(va).localeCompare(String(vb), 'de', { sensitivity: 'base' });
+            }
+            return sortAscReadings ? cmp : -cmp;
+        }
+        va = a[col] || '';
+        vb = b[col] || '';
+        var cmp = String(va).localeCompare(String(vb), 'de', { sensitivity: 'base' });
+        return sortAscReadings ? cmp : -cmp;
     });
 
     // Anzahl sichtbarer Spalten für mobile colspan (Bezeichnung + Nr + M/A + Aktuell)
@@ -130,15 +150,15 @@ function render() {
     h += '<input type="date" id="inp-datum" value="' + currentDatum + '" onchange="onDatumChange(this.value)">';
     h += '</div>';
 
-    // Tabelle mit Gruppierung
-    h += '<div style="overflow-x:auto"><table><thead><tr>';
-    h += '<th class="col-desk">Haus</th>';
-    h += '<th class="col-desk">Einheit</th>';
-    h += '<th>Bezeichnung</th>';
-    h += '<th class="col-desk">Typ</th>';
-    h += '<th>Nr.</th>';
-    h += '<th class="col-ma' + (showMA ? '' : ' col-hide') + '" title="Memory/Stichtag">M/A</th>';
-    h += '<th class="col-ak' + (showAktuell ? '' : ' col-hide') + '" title="Ablesewert/Alt-Wert">Aktuell</th>';
+    // Tabelle mit Gruppierung (sortierbare Spalten)
+    h += '<div style="overflow-x:auto"><table><thead><tr id="readings-head">';
+    h += '<th class="col-desk" data-sort="haus">Haus</th>';
+    h += '<th class="col-desk" data-sort="einheit">Einheit</th>';
+    h += '<th data-sort="bezeichnung">Bezeichnung</th>';
+    h += '<th class="col-desk" data-sort="typ">Typ</th>';
+    h += '<th data-sort="nr">Nr.</th>';
+    h += '<th class="col-ma' + (showMA ? '' : ' col-hide') + '" data-sort="ma" title="Memory/Stichtag">M/A</th>';
+    h += '<th class="col-ak' + (showAktuell ? '' : ' col-hide') + '" data-sort="aktuell" title="Ablesewert/Alt-Wert">Aktuell</th>';
     h += '</tr></thead><tbody>';
 
     var lastHaus = null;
@@ -193,6 +213,28 @@ function render() {
     // Filled-Status setzen
     document.querySelectorAll('.vi').forEach(function (inp) {
         if (inp.value.trim()) inp.classList.add('filled');
+    });
+}
+
+function initReadingsSort() {
+    document.getElementById('app').addEventListener('click', function (e) {
+        var th = e.target.closest('th[data-sort]');
+        if (!th || !viewData) return;
+        var col = th.dataset.sort;
+        if (sortColReadings === col) sortAscReadings = !sortAscReadings;
+        else { sortColReadings = col; sortAscReadings = true; }
+        // Aktuelle Eingabewerte vor Re-Render sichern (für Sortierung nach M/A oder Aktuell)
+        if (col === 'ma' || col === 'aktuell') {
+            if (!viewData.existing) viewData.existing = {};
+            document.querySelectorAll('input[data-nr][data-field]').forEach(function (inp) {
+                var nr = inp.dataset.nr;
+                var f = inp.dataset.field;
+                var v = (inp.value || '').trim();
+                if (!viewData.existing[nr]) viewData.existing[nr] = {};
+                viewData.existing[nr][f === 'ma' ? 'wertMA' : 'wertAktuell'] = v;
+            });
+        }
+        render();
     });
 }
 

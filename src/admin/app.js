@@ -10,9 +10,13 @@ let views = [];
 let readings = [];
 let sortCol = '';
 let sortAsc = true;
+let sortColView = '';
+let sortAscView = true;
+let sortColOv = 'haus';
+let sortAscOv = true;
 
-const FIELDS = ['haus', 'nr', 'bezeichnung', 'einheit', 'typ', 'faktor', 'stichtag', 'aktiv'];
-const FIELDS_INTERNAL = ['haus', 'nr', 'bezeichnung', 'einheit', 'typ', 'faktor', 'stichtag', 'validFrom', 'validTo'];
+const FIELDS = ['haus', 'einheit', 'bezeichnung', 'nr', 'typ', 'faktor', 'stichtag', 'aktiv'];
+const FIELDS_INTERNAL = ['haus', 'einheit', 'bezeichnung', 'nr', 'typ', 'faktor', 'stichtag', 'validFrom', 'validTo'];
 let dirtyRows = {};    // { nr: { field: newValue, ... } }
 let origNrMap = {};    // { nr: origNr } — tracks if nr itself was changed
 let newRows = [];      // [ { tempId, nr, bezeichnung, ... } ]
@@ -793,16 +797,40 @@ function switchTab(tabName) {
 // ── Ansichten (Inline) ───────────────────────────────────────
 
 function initViewEvents() {
-    // Keine "+ Ansicht" Button-Aktion mehr — Ansichten werden nur über die Zählerseite erstellt
+    document.getElementById('v-head').addEventListener('click', e => {
+        const th = e.target.closest('th[data-sort]');
+        if (!th) return;
+        const col = th.dataset.sort;
+        if (sortColView === col) sortAscView = !sortAscView;
+        else { sortColView = col; sortAscView = true; }
+        renderViews();
+    });
 }
 
 function renderViews() {
     const tbody = document.getElementById('v-body');
     tbody.innerHTML = '';
 
-    views.forEach(v => {
+    const viewList = views.map(v => {
         const matched = getFilteredByView(v.filter);
         const fDesc = buildFilterDesc(v.filter);
+        return { v, matched, fDesc };
+    });
+    if (sortColView) {
+        viewList.sort((a, b) => {
+            let va, vb;
+            if (sortColView === 'name') { va = (a.v.name || ''); vb = (b.v.name || ''); }
+            else if (sortColView === 'filter') { va = (a.fDesc || ''); vb = (b.fDesc || ''); }
+            else if (sortColView === 'count') { va = a.matched.length; vb = b.matched.length; }
+            else if (sortColView === 'zeitraum') { va = (a.v.editableFrom || 'zzzz'); vb = (b.v.editableFrom || 'zzzz'); }
+            else return 0;
+            if (typeof va === 'number' && typeof vb === 'number') return sortAscView ? va - vb : vb - va;
+            const cmp = String(va).localeCompare(String(vb), 'de', { sensitivity: 'base' });
+            return sortAscView ? cmp : -cmp;
+        });
+    }
+
+    viewList.forEach(({ v, matched, fDesc }) => {
         const baseUrl = window.location.href.replace(/admin\/.*$/, '');
         const link = baseUrl + 'readings/?name=' + encodeURIComponent(v.name);
 
@@ -1048,6 +1076,14 @@ function initOverviewEvents() {
     mselInit('of-typ', ovFilterChange);
     mselInit('of-werte', ovFilterChange);
     mselInit('of-jahr', ovFilterChange);
+    document.getElementById('ov-head').addEventListener('click', e => {
+        const th = e.target.closest('th[data-sort]');
+        if (!th) return;
+        const col = th.dataset.sort;
+        if (sortColOv === col) sortAscOv = !sortAscOv;
+        else { sortColOv = col; sortAscOv = true; }
+        renderOverview();
+    });
 }
 
 async function loadOverview() {
@@ -1214,9 +1250,9 @@ function renderOverview() {
         displayCols.push({ isPlaceholder: true, sc: 'Keine Daten vorhanden', viewNames: [], ids: [] });
     }
 
-    // Schritt 4: Header rendern
+    // Schritt 4: Header rendern (fix-Spalten sortierbar)
     const thead = document.getElementById('ov-head');
-    thead.innerHTML = '<th class="fix-haus">Haus</th><th class="fix-einheit">Einheit</th><th class="fix-nr">Nr.</th><th class="fix-bez">Bezeichnung</th>';
+    thead.innerHTML = '<th class="fix-haus" data-sort="haus">Haus</th><th class="fix-einheit" data-sort="einheit">Einheit</th><th class="fix-bez" data-sort="bezeichnung">Bezeichnung</th><th class="fix-nr" data-sort="nr">Nr.</th>';
     const ovBaseUrl = window.location.href.replace(/admin\/.*$/, '');
     displayCols.forEach(dc => {
         const th = document.createElement('th');
@@ -1257,13 +1293,13 @@ function renderOverview() {
         });
     });
 
-    // Sortieren nach Haus → Einheit → Bezeichnung
+    // Sortieren nach gewählter Spalte
     const sorted = filtered.slice().sort((a, b) => {
-        let cmp = (a.haus || '').localeCompare(b.haus || '', 'de');
-        if (cmp !== 0) return cmp;
-        cmp = (a.einheit || '').localeCompare(b.einheit || '', 'de');
-        if (cmp !== 0) return cmp;
-        return (a.bezeichnung || '').localeCompare(b.bezeichnung || '', 'de');
+        const col = sortColOv || 'haus';
+        const va = a[col] || '';
+        const vb = b[col] || '';
+        const cmp = String(va).localeCompare(String(vb), 'de', { sensitivity: 'base' });
+        return sortAscOv ? cmp : -cmp;
     });
 
     // Schritt 5: Body rendern mit merged Werten
@@ -1280,7 +1316,7 @@ function renderOverview() {
         if (!isActive && !hasAnyData) return;
 
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td class="fix-haus">${esc(m.haus)}</td><td class="fix-einheit">${esc(m.einheit)}</td><td class="fix-nr">${esc(m.nr)}</td><td class="fix-bez">${esc(m.bezeichnung)}</td>`;
+        tr.innerHTML = `<td class="fix-haus">${esc(m.haus)}</td><td class="fix-einheit">${esc(m.einheit)}</td><td class="fix-bez">${esc(m.bezeichnung)}</td><td class="fix-nr">${esc(m.nr)}</td>`;
         displayCols.forEach(dc => {
             const td = document.createElement('td');
             if (dc.isPlaceholder) {
@@ -1378,18 +1414,18 @@ function getFilteredMetersForExport() {
 
 function exportMetersCSV() {
     const list = getFilteredMetersForExport();
-    const header = ['Haus', 'Nr', 'Bezeichnung', 'Einheit', 'Typ', 'Faktor', 'Stichtag', 'Gültig von', 'Gültig bis'];
+    const header = ['Haus', 'Einheit', 'Bezeichnung', 'Nr', 'Typ', 'Faktor', 'Stichtag', 'Gültig von', 'Gültig bis'];
     const rows = [header];
-    list.forEach(m => rows.push([m.haus, m.nr, m.bezeichnung, m.einheit, m.typ, m.faktor || '', m.stichtag || '31.12', m.validFrom || '', m.validTo || '']));
+    list.forEach(m => rows.push([m.haus, m.einheit, m.bezeichnung, m.nr, m.typ, m.faktor || '', m.stichtag || '31.12', m.validFrom || '', m.validTo || '']));
     HPExport.exportCSV(rows, 'zaehler.csv');
     toast('CSV exportiert.', 'ok');
 }
 
 function exportMetersExcel() {
     const list = getFilteredMetersForExport();
-    const header = ['Haus', 'Nr', 'Bezeichnung', 'Einheit', 'Typ', 'Faktor', 'Stichtag', 'Gültig von', 'Gültig bis'];
+    const header = ['Haus', 'Einheit', 'Bezeichnung', 'Nr', 'Typ', 'Faktor', 'Stichtag', 'Gültig von', 'Gültig bis'];
     const rows = [header];
-    list.forEach(m => rows.push([m.haus, m.nr, m.bezeichnung, m.einheit, m.typ, m.faktor || '', m.stichtag || '31.12', m.validFrom || '', m.validTo || '']));
+    list.forEach(m => rows.push([m.haus, m.einheit, m.bezeichnung, m.nr, m.typ, m.faktor || '', m.stichtag || '31.12', m.validFrom || '', m.validTo || '']));
     HPExport.exportExcel(rows, 'zaehler.xlsx', 'Zähler');
     toast('Excel exportiert.', 'ok');
 }
@@ -1571,11 +1607,11 @@ function getOverviewExportData() {
         const isActive = displayCols.some(dc => HP.isMeterActive(m, dc.datum));
         return isActive || hasAnyData;
     }).sort((a, b) => {
-        let cmp = (a.haus || '').localeCompare(b.haus || '', 'de');
-        if (cmp !== 0) return cmp;
-        cmp = (a.einheit || '').localeCompare(b.einheit || '', 'de');
-        if (cmp !== 0) return cmp;
-        return (a.bezeichnung || '').localeCompare(b.bezeichnung || '', 'de');
+        const col = sortColOv || 'haus';
+        const va = a[col] || '';
+        const vb = b[col] || '';
+        const cmp = String(va).localeCompare(String(vb), 'de', { sensitivity: 'base' });
+        return sortAscOv ? cmp : -cmp;
     });
 
     return { sorted, displayCols, mergedValMap };
@@ -1583,13 +1619,13 @@ function getOverviewExportData() {
 
 function exportOverviewCSV() {
     const { sorted, displayCols, mergedValMap } = getOverviewExportData();
-    const header = ['Haus', 'Einheit', 'Nr.', 'Bezeichnung', 'Typ', 'Faktor', 'Stichtag', 'Gültig von', 'Gültig bis'];
+    const header = ['Haus', 'Einheit', 'Bezeichnung', 'Nr.', 'Typ', 'Faktor', 'Stichtag', 'Gültig von', 'Gültig bis'];
     displayCols.forEach(dc => {
         header.push((dc.isGesamt ? 'Stichtag' : HP.formatDate(dc.datum)) + (dc.viewNames.length ? ' ' + dc.viewNames.join(' ') : '') + ' ' + dc.sc);
     });
     const rows = [header];
     sorted.forEach(m => {
-        const row = [m.haus, m.einheit, m.nr, m.bezeichnung, m.typ, m.faktor || '', m.stichtag || '31.12', m.validFrom || '', m.validTo || ''];
+        const row = [m.haus, m.einheit, m.bezeichnung, m.nr, m.typ, m.faktor || '', m.stichtag || '31.12', m.validFrom || '', m.validTo || ''];
         displayCols.forEach(dc => {
             const v = mergedValMap[m.nr + '|' + dc.datum];
             row.push(v ? ((dc.sc === 'M/A' || dc.isGesamt) ? (v.wertMA || '') : (v.wertAktuell || '')) : '');
@@ -1602,13 +1638,13 @@ function exportOverviewCSV() {
 
 function exportOverviewExcel() {
     const { sorted, displayCols, mergedValMap } = getOverviewExportData();
-    const header = ['Haus', 'Einheit', 'Nr.', 'Bezeichnung', 'Typ', 'Faktor', 'Stichtag', 'Gültig von', 'Gültig bis'];
+    const header = ['Haus', 'Einheit', 'Bezeichnung', 'Nr.', 'Typ', 'Faktor', 'Stichtag', 'Gültig von', 'Gültig bis'];
     displayCols.forEach(dc => {
         header.push((dc.isGesamt ? 'Stichtag' : HP.formatDate(dc.datum)) + (dc.viewNames.length ? ' ' + dc.viewNames.join(' ') : '') + ' ' + dc.sc);
     });
     const rows = [header];
     sorted.forEach(m => {
-        const row = [m.haus, m.einheit, m.nr, m.bezeichnung, m.typ, m.faktor || '', m.stichtag || '31.12', m.validFrom || '', m.validTo || ''];
+        const row = [m.haus, m.einheit, m.bezeichnung, m.nr, m.typ, m.faktor || '', m.stichtag || '31.12', m.validFrom || '', m.validTo || ''];
         displayCols.forEach(dc => {
             const v = mergedValMap[m.nr + '|' + dc.datum];
             row.push(v ? ((dc.sc === 'M/A' || dc.isGesamt) ? (v.wertMA || '') : (v.wertAktuell || '')) : '');
@@ -1621,13 +1657,13 @@ function exportOverviewExcel() {
 
 function exportOverviewPDF() {
     const { sorted, displayCols, mergedValMap } = getOverviewExportData();
-    const head = ['Haus', 'Einheit', 'Nr.', 'Bez.', 'Typ', 'Fkt.', 'Sticht.', 'v.', 'b.'];
+    const head = ['Haus', 'Einheit', 'Bez.', 'Nr.', 'Typ', 'Fkt.', 'Sticht.', 'v.', 'b.'];
     displayCols.forEach(dc => {
         const dStr = dc.isGesamt ? 'Stichtag' : HP.formatDate(dc.datum);
         head.push(dStr + (dc.viewNames.length ? '\n' + dc.viewNames.join(' ') : '') + '\n' + dc.sc);
     });
     const body = sorted.map(m => {
-        const row = [m.haus, m.einheit, m.nr, m.bezeichnung, m.typ, m.faktor || '', m.stichtag || '31.12', m.validFrom || '', m.validTo || ''];
+        const row = [m.haus, m.einheit, m.bezeichnung, m.nr, m.typ, m.faktor || '', m.stichtag || '31.12', m.validFrom || '', m.validTo || ''];
         displayCols.forEach(dc => {
             const v = mergedValMap[m.nr + '|' + dc.datum];
             row.push(v ? ((dc.sc === 'M/A' || dc.isGesamt) ? (v.wertMA || '') : (v.wertAktuell || '')) : '');
