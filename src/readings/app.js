@@ -32,20 +32,22 @@ async function init() {
         // Spaltenauswahl aus URL laden
         var urlParams = new URLSearchParams(window.location.search);
         var cols = urlParams.get('cols');
-        if (cols !== null) {
-            if (cols === 'none') {
+        if (cols !== null && cols !== 'none') {
+            var colList = cols.split(',').filter(Boolean);
+            showMA = colList.indexOf('ma') !== -1;
+            showAktuell = colList.indexOf('aktuell') !== -1;
+        } else {
+            // cols=none oder kein cols: wenn bereits Werte da, Spalten anzeigen; sonst Buttons
+            var ex = viewData.existing || {};
+            var hasMA = Object.values(ex).some(function (e) { return (e.wertMA || '').trim() !== ''; });
+            var hasAk = Object.values(ex).some(function (e) { return (e.wertAktuell || '').trim() !== ''; });
+            if (hasMA || hasAk) {
+                showMA = hasMA;
+                showAktuell = hasAk;
+            } else {
                 showMA = false;
                 showAktuell = false;
-            } else {
-                var colList = cols.split(',').filter(Boolean);
-                showMA = colList.indexOf('ma') !== -1;
-                showAktuell = colList.indexOf('aktuell') !== -1;
             }
-        } else {
-            // Kein cols-Parameter: M/A immer, Aktuell nur wenn bereits Daten vorhanden
-            showMA = true;
-            var hasAktuellData = Object.values(viewData.existing || {}).some(function (e) { return (e.wertAktuell || '').trim() !== ''; });
-            showAktuell = hasAktuellData;
         }
 
         // Datum aus URL laden — nachfragen wenn nicht heute (außer force=1)
@@ -61,9 +63,11 @@ async function init() {
                     var data2 = await res2.json();
                     viewData.existing = data2.existing || {};
                     viewData.foreignSources = data2.foreignSources || {};
-                    if (urlParams.get('cols') === null) {
-                        var hasAk = Object.values(viewData.existing || {}).some(function (e) { return (e.wertAktuell || '').trim() !== ''; });
-                        showAktuell = hasAk;
+                    if (urlParams.get('cols') === null || urlParams.get('cols') === 'none') {
+                        var ex = viewData.existing || {};
+                        var hasMA = Object.values(ex).some(function (e) { return (e.wertMA || '').trim() !== ''; });
+                        var hasAk = Object.values(ex).some(function (e) { return (e.wertAktuell || '').trim() !== ''; });
+                        if (hasMA || hasAk) { showMA = hasMA; showAktuell = hasAk; }
                     }
                 }
             } else {
@@ -134,9 +138,9 @@ function render() {
         return sortAscReadings ? cmp : -cmp;
     });
 
-    // Anzahl sichtbarer Spalten für mobile colspan (Bezeichnung + Nr + M/A + Aktuell)
-    // Haus/Einheit/Typ-Spalten sind auf Desktop sichtbar, auf Mobile hidden via CSS
-    var colCount = 2 + (showMA ? 1 : 0) + (showAktuell ? 1 : 0);
+    // Anzahl sichtbarer Spalten für mobile colspan
+    var needsChoice = !showMA && !showAktuell;
+    var colCount = 2 + (needsChoice ? 1 : 0) + (showMA ? 1 : 0) + (showAktuell ? 1 : 0);
 
     var h = '';
 
@@ -166,8 +170,16 @@ function render() {
     h += '<th data-sort="bezeichnung">Bezeichnung</th>';
     h += '<th class="col-desk" data-sort="typ">Typ</th>';
     h += '<th data-sort="nr">Nr.</th>';
-    h += '<th class="col-ma' + (showMA ? '' : ' col-hide') + '" data-sort="ma" title="Memory/Stichtag">M/A</th>';
-    h += '<th class="col-ak' + (showAktuell ? '' : ' col-hide') + '" data-sort="aktuell" title="Ablesewert/Alt-Wert">Aktuell</th>';
+    if (needsChoice) {
+        h += '<th class="col-choice">';
+        h += '<span class="col-choice-lbl">Spalte wählen:</span> ';
+        h += '<button type="button" class="col-choice-btn" onclick="chooseCol(\'ma\')" title="Memory/Stichtag">M/A</button> ';
+        h += '<button type="button" class="col-choice-btn" onclick="chooseCol(\'aktuell\')" title="Ablesewert/Alt-Wert">Aktuell</button>';
+        h += '</th>';
+    } else {
+        h += '<th class="col-ma' + (showMA ? '' : ' col-hide') + '" data-sort="ma" title="Memory/Stichtag">M/A</th>';
+        h += '<th class="col-ak' + (showAktuell ? '' : ' col-hide') + '" data-sort="aktuell" title="Ablesewert/Alt-Wert">Aktuell</th>';
+    }
     h += '</tr></thead><tbody>';
 
     var lastHaus = null;
@@ -197,8 +209,12 @@ function render() {
         h += '<td class="col-nr">' + esc(m.nr) + '</td>';
         var dis = locked ? ' disabled' : '';
         var foreignLabel = isForeign ? '<span class="foreign-hint">von ' + esc(foreignSources[m.nr]) + '</span>' : '';
-        h += '<td class="col-ma' + (showMA ? '' : ' col-hide') + '"><input class="vi' + foreignCls + '" type="text" inputmode="decimal" data-nr="' + esc(m.nr) + '" data-field="ma" value="' + esc(ex.wertMA || '') + '" oninput="onVal(this)"' + dis + foreignHint + '>' + (isForeign && (ex.wertMA || '') ? foreignLabel : '') + '</td>';
-        h += '<td class="col-ak' + (showAktuell ? '' : ' col-hide') + '"><input class="vi' + foreignCls + '" type="text" inputmode="decimal" data-nr="' + esc(m.nr) + '" data-field="ak" value="' + esc(ex.wertAktuell || '') + '" oninput="onVal(this)"' + dis + foreignHint + '>' + (isForeign && (ex.wertAktuell || '') ? foreignLabel : '') + '</td>';
+        if (needsChoice) {
+            h += '<td class="col-choice"></td>';
+        } else {
+            h += '<td class="col-ma' + (showMA ? '' : ' col-hide') + '"><input class="vi' + foreignCls + '" type="text" inputmode="decimal" data-nr="' + esc(m.nr) + '" data-field="ma" value="' + esc(ex.wertMA || '') + '" oninput="onVal(this)"' + dis + foreignHint + '>' + (isForeign && (ex.wertMA || '') ? foreignLabel : '') + '</td>';
+            h += '<td class="col-ak' + (showAktuell ? '' : ' col-hide') + '"><input class="vi' + foreignCls + '" type="text" inputmode="decimal" data-nr="' + esc(m.nr) + '" data-field="ak" value="' + esc(ex.wertAktuell || '') + '" oninput="onVal(this)"' + dis + foreignHint + '>' + (isForeign && (ex.wertAktuell || '') ? foreignLabel : '') + '</td>';
+        }
         h += '</tr>';
     });
     h += '</tbody></table></div>';
@@ -247,6 +263,13 @@ function initReadingsSort() {
     });
 }
 
+function chooseCol(col) {
+    if (col === 'ma') { showMA = true; showAktuell = false; }
+    if (col === 'aktuell') { showMA = false; showAktuell = true; }
+    syncColsToUrl();
+    render();
+}
+
 function toggleCol(col) {
     if (col === 'ma') showMA = !showMA;
     if (col === 'aktuell') showAktuell = !showAktuell;
@@ -266,10 +289,9 @@ function syncColsToUrl() {
 
 async function onDatumChange(val) {
     currentDatum = val;
-    // Datum in URL speichern
     syncDatumToUrl();
-    // Daten für neues Datum nachladen
     var name = new URLSearchParams(window.location.search).get('name');
+    var urlParams = new URLSearchParams(window.location.search);
     try {
         var res = await fetch(API + '?action=load&name=' + encodeURIComponent(name) + '&datum=' + encodeURIComponent(val));
         if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -280,6 +302,18 @@ async function onDatumChange(val) {
         viewData.pdf = data.pdf || '';
         viewData.foreignSources = data.foreignSources || {};
         viewData.datum = val;
+        if (urlParams.get('cols') === null || urlParams.get('cols') === 'none') {
+            var ex = viewData.existing || {};
+            var hasMA = Object.values(ex).some(function (e) { return (e.wertMA || '').trim() !== ''; });
+            var hasAk = Object.values(ex).some(function (e) { return (e.wertAktuell || '').trim() !== ''; });
+            if (hasMA || hasAk) {
+                showMA = hasMA;
+                showAktuell = hasAk;
+            } else {
+                showMA = false;
+                showAktuell = false;
+            }
+        }
         render();
     } catch (e) {
         toast('Fehler beim Laden: ' + e.message, 'err');

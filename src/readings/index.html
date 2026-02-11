@@ -240,6 +240,45 @@
             white-space: nowrap;
         }
 
+        /* Choice column: M/A or Aktuell reminder when cols not set */
+        .col-choice {
+            background: #fff !important;
+            text-align: center !important;
+            vertical-align: middle !important;
+            border-left: 3px solid #07c !important;
+            min-width: 140px;
+        }
+
+        th.col-choice {
+            background: #fff !important;
+        }
+
+        .col-choice-lbl {
+            font-size: 12px;
+            color: #07c;
+            font-weight: 600;
+            display: inline-block;
+            margin-bottom: 4px;
+        }
+
+        .col-choice-btn {
+            font: inherit;
+            font-size: 15px;
+            font-weight: 600;
+            padding: 8px 16px;
+            border: 2px solid #07c;
+            background: #fff;
+            color: #07c;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 2px 4px;
+        }
+
+        .col-choice-btn:hover {
+            background: #07c;
+            color: #fff;
+        }
+
         .col-typ-br {
             display: none;
         }
@@ -509,6 +548,11 @@
 
             .hp-export-menu {
                 min-width: 220px;
+            }
+
+            .col-choice-btn {
+                padding: 10px 18px;
+                font-size: 16px;
             }
         }
     </style>
