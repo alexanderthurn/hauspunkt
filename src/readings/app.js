@@ -32,7 +32,11 @@ async function init() {
         // Spaltenauswahl aus URL laden
         var urlParams = new URLSearchParams(window.location.search);
         var cols = urlParams.get('cols');
-        if (cols !== null && cols !== 'none') {
+        if (cols === null) {
+            // Default ohne Spalten-Parameter: M/A aktiv
+            showMA = true;
+            showAktuell = false;
+        } else if (cols !== 'none') {
             var colList = cols.split(',').filter(Boolean);
             showMA = colList.indexOf('ma') !== -1;
             showAktuell = colList.indexOf('aktuell') !== -1;
@@ -64,7 +68,10 @@ async function init() {
                     viewData.existing = data2.existing || {};
                     viewData.foreignSources = data2.foreignSources || {};
                     if (data2.readingDates) viewData.readingDates = data2.readingDates;
-                    if (urlParams.get('cols') === null || urlParams.get('cols') === 'none') {
+                    if (urlParams.get('cols') === null) {
+                        showMA = true;
+                        showAktuell = false;
+                    } else if (urlParams.get('cols') === 'none') {
                         var ex = viewData.existing || {};
                         var hasMA = Object.values(ex).some(function (e) { return (e.wertMA || '').trim() !== ''; });
                         var hasAk = Object.values(ex).some(function (e) { return (e.wertAktuell || '').trim() !== ''; });
@@ -206,7 +213,7 @@ function render() {
         h += '<tr>';
         h += '<td class="col-desk">' + esc(m.haus) + '</td>';
         h += '<td class="col-desk">' + esc(m.einheit) + '</td>';
-        h += '<td>' + esc(m.bezeichnung) + '<br><span class="col-typ-br">' + esc(m.typ) + '</span></td>';
+        h += '<td class="col-bezeichnung">' + esc(m.bezeichnung) + '<br><span class="col-typ-br">' + esc(m.typ) + '</span></td>';
         h += '<td class="col-desk">' + esc(m.typ) + '</td>';
         h += '<td class="col-nr">' + esc(m.nr) + '</td>';
         var dis = locked ? ' disabled' : '';
