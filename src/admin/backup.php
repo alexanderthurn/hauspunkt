@@ -96,6 +96,8 @@ function hp_backup_upload(): void
 
     $created = [];
     $overwritten = [];
+    $createdEntries = [];
+    $overwrittenEntries = [];
     $skipped = [];
 
     for ($i = 0; $i < $zip->numFiles; $i++) {
@@ -126,6 +128,21 @@ function hp_backup_upload(): void
         $targetDir = dirname($targetAbs);
         if (!is_dir($targetDir) && !mkdir($targetDir, 0755, true) && !is_dir($targetDir)) {
             $skipped[] = $targetRel . ' (Zielordner konnte nicht erstellt werden)';
+            continue;
+        }
+
+        if (hp_backup_is_merge_json_target($targetRel)) {
+            $merge = hp_backup_merge_json_entrywise($zip, $entryName, $targetAbs, $targetRel, $skipped);
+            if (!$merge['ok']) {
+                continue;
+            }
+            if ($merge['applied']) {
+                $created[] = $targetRel;
+            } else {
+                $skipped[] = $targetRel . ' (keine gültigen Einträge zum Mergen)';
+            }
+            $createdEntries = array_merge($createdEntries, $merge['createdEntries']);
+            $overwrittenEntries = array_merge($overwrittenEntries, $merge['overwrittenEntries']);
             continue;
         }
 
@@ -168,10 +185,14 @@ function hp_backup_upload(): void
         'success' => true,
         'created' => $created,
         'overwritten' => $overwritten,
+        'createdEntries' => $createdEntries,
+        'overwrittenEntries' => $overwrittenEntries,
         'skipped' => $skipped,
         'counts' => [
             'created' => count($created),
             'overwritten' => count($overwritten),
+            'createdEntries' => count($createdEntries),
+            'overwrittenEntries' => count($overwrittenEntries),
             'skipped' => count($skipped),
         ],
     ]);
@@ -241,6 +262,137 @@ function hp_backup_map_allowed_entry(string $entry): ?string
         return $entry;
     }
     return null;
+}
+
+function hp_backup_is_merge_json_target(string $targetRel): bool
+{
+    return in_array($targetRel, [
+        'admin/data/meters.json',
+        'admin/data/views.json',
+        'readings/data/readings.json',
+    ], true);
+}
+
+function hp_backup_merge_json_entrywise(
+    ZipArchive $zip,
+    string $entryName,
+    string $targetAbs,
+    string $targetRel,
+    array &$skipped
+): array {
+    $keyField = hp_backup_merge_key_field($targetRel);
+    if ($keyField === null) {
+        $skipped[] = $targetRel . ' (kein Merge-Key definiert)';
+        return ['ok' => false, 'applied' => false, 'createdEntries' => [], 'overwrittenEntries' => []];
+    }
+
+    $incomingRaw = $zip->getFromName($entryName);
+    if (!is_string($incomingRaw)) {
+        $skipped[] = $targetRel . ' (JSON-Eintrag konnte nicht gelesen werden)';
+        return ['ok' => false, 'applied' => false, 'createdEntries' => [], 'overwrittenEntries' => []];
+    }
+    $incomingData = json_decode($incomingRaw, true);
+    if (!is_array($incomingData)) {
+        $skipped[] = $targetRel . ' (ungültiges JSON im Backup)';
+        return ['ok' => false, 'applied' => false, 'createdEntries' => [], 'overwrittenEntries' => []];
+    }
+
+    $existingData = [];
+    if (file_exists($targetAbs)) {
+        $existingRaw = @file_get_contents($targetAbs);
+        $decoded = is_string($existingRaw) ? json_decode($existingRaw, true) : null;
+        $existingData = is_array($decoded) ? $decoded : [];
+    }
+
+    $existingMap = [];
+    $existingOrder = [];
+    $existingOther = [];
+    foreach ($existingData as $row) {
+        if (!is_array($row)) {
+            $existingOther[] = $row;
+            continue;
+        }
+        $keyVal = hp_backup_key_value($row, $keyField);
+        if ($keyVal === null) {
+            $existingOther[] = $row;
+            continue;
+        }
+        $isNewKey = !array_key_exists($keyVal, $existingMap);
+        $existingMap[$keyVal] = $row;
+        if ($isNewKey) {
+            $existingOrder[] = $keyVal;
+        }
+    }
+
+    $createdEntries = [];
+    $overwrittenEntries = [];
+    foreach ($incomingData as $idx => $row) {
+        if (!is_array($row)) {
+            $skipped[] = $targetRel . ' (Eintrag #' . ($idx + 1) . ' ist kein Objekt)';
+            continue;
+        }
+        $keyVal = hp_backup_key_value($row, $keyField);
+        if ($keyVal === null) {
+            $skipped[] = $targetRel . ' (Eintrag #' . ($idx + 1) . ' ohne Key "' . $keyField . '")';
+            continue;
+        }
+
+        if (array_key_exists($keyVal, $existingMap)) {
+            $overwrittenEntries[] = $targetRel . ' [' . $keyField . '=' . $keyVal . ']';
+        } else {
+            $createdEntries[] = $targetRel . ' [' . $keyField . '=' . $keyVal . ']';
+            $existingOrder[] = $keyVal;
+        }
+        $existingMap[$keyVal] = $row;
+    }
+
+    $merged = $existingOther;
+    foreach ($existingOrder as $k) {
+        if (array_key_exists($k, $existingMap)) {
+            $merged[] = $existingMap[$k];
+        }
+    }
+
+    $json = json_encode($merged, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    if ($json === false) {
+        $skipped[] = $targetRel . ' (Konnte gemergtes JSON nicht erzeugen)';
+        return ['ok' => false, 'applied' => false, 'createdEntries' => [], 'overwrittenEntries' => []];
+    }
+    $ok = @file_put_contents($targetAbs, $json, LOCK_EX);
+    if ($ok === false) {
+        $skipped[] = $targetRel . ' (Konnte gemergte Datei nicht schreiben)';
+        return ['ok' => false, 'applied' => false, 'createdEntries' => [], 'overwrittenEntries' => []];
+    }
+
+    return [
+        'ok' => true,
+        'applied' => (count($createdEntries) + count($overwrittenEntries)) > 0,
+        'createdEntries' => $createdEntries,
+        'overwrittenEntries' => $overwrittenEntries
+    ];
+}
+
+function hp_backup_merge_key_field(string $targetRel): ?string
+{
+    if ($targetRel === 'readings/data/readings.json') {
+        return 'id';
+    }
+    if ($targetRel === 'admin/data/meters.json') {
+        return 'nr';
+    }
+    if ($targetRel === 'admin/data/views.json') {
+        return 'id';
+    }
+    return null;
+}
+
+function hp_backup_key_value(array $row, string $keyField): ?string
+{
+    if (!isset($row[$keyField])) {
+        return null;
+    }
+    $v = trim((string) $row[$keyField]);
+    return $v === '' ? null : $v;
 }
 
 function hp_backup_is_inside_base(string $baseDir, string $targetAbs): bool

@@ -1794,13 +1794,25 @@ function uploadFullBackup() {
 
             const created = Array.isArray(data.created) ? data.created : [];
             const overwritten = Array.isArray(data.overwritten) ? data.overwritten : [];
+            const createdEntries = Array.isArray(data.createdEntries) ? data.createdEntries : [];
+            const overwrittenEntries = Array.isArray(data.overwrittenEntries) ? data.overwrittenEntries : [];
             const skipped = Array.isArray(data.skipped) ? data.skipped : [];
 
-            toast('Backup eingespielt: ' + created.length + ' neu, ' + overwritten.length + ' überschrieben.', 'ok');
+            const hasEntryReport = createdEntries.length || overwrittenEntries.length;
+            const okMsg = hasEntryReport
+                ? ('Backup eingespielt: ' + createdEntries.length + ' Einträge neu, ' + overwrittenEntries.length + ' Einträge überschrieben.')
+                : ('Backup eingespielt: ' + created.length + ' Datei(en) neu, ' + overwritten.length + ' Datei(en) überschrieben.');
+            toast(okMsg, 'ok');
 
             let details = 'Backup erfolgreich eingespielt.';
-            details += '\n\nNeu (' + created.length + '):\n' + (created.length ? created.join('\n') : '—');
-            details += '\n\nÜberschrieben (' + overwritten.length + '):\n' + (overwritten.length ? overwritten.join('\n') : '—');
+            if (hasEntryReport) {
+                details += '\n\nNeue Einträge (' + createdEntries.length + '):\n' + (createdEntries.length ? createdEntries.join('\n') : '—');
+                details += '\n\nÜberschriebene Einträge (' + overwrittenEntries.length + '):\n' + (overwrittenEntries.length ? overwrittenEntries.join('\n') : '—');
+                details += '\n\nBetroffene Dateien (neu/aktualisiert):\n' + ((created.length || overwritten.length) ? created.concat(overwritten).join('\n') : '—');
+            } else {
+                details += '\n\nNeu (' + created.length + '):\n' + (created.length ? created.join('\n') : '—');
+                details += '\n\nÜberschrieben (' + overwritten.length + '):\n' + (overwritten.length ? overwritten.join('\n') : '—');
+            }
             if (skipped.length) {
                 details += '\n\nÜbersprungen (' + skipped.length + '):\n' + skipped.join('\n');
             }
