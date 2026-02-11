@@ -247,6 +247,13 @@ function getFilteredByView(filter) {
     });
 }
 
+/** Menge der Zähler-IDs, die zur Ansicht viewName gehören (für Sanity-Check bei Readings) */
+function getViewAllowedMeterIds(viewName) {
+    const v = views.find(x => x.name === viewName);
+    if (!v || !v.filter) return new Set(meters.map(m => m.nr)); // Fallback: alle
+    return new Set(getFilteredByView(v.filter).map(m => m.nr));
+}
+
 // ── Zähler ───────────────────────────────────────────────────
 
 function initMeterEvents() {
@@ -315,18 +322,18 @@ function syncFiltersToUrl() {
 
 function loadFiltersFromUrl() {
     const params = new URLSearchParams(window.location.search);
-    const haus = (params.get('haus') || '').split('|').filter(Boolean);
-    const einheit = (params.get('einheit') || '').split('|').filter(Boolean);
-    const typ = (params.get('typ') || '').split('|').filter(Boolean);
+    const haus = (params.get('haus') || '').split('|').map(s => s.trim()).filter(Boolean);
+    const einheit = (params.get('einheit') || '').split('|').map(s => s.trim()).filter(Boolean);
+    const typ = (params.get('typ') || '').split('|').map(s => s.trim()).filter(Boolean);
     setSelVals(document.getElementById('f-haus'), haus);
     setSelVals(document.getElementById('f-einheit'), einheit);
     setSelVals(document.getElementById('f-typ'), typ);
     setSelVals(document.getElementById('of-haus'), haus);
     setSelVals(document.getElementById('of-einheit'), einheit);
     setSelVals(document.getElementById('of-typ'), typ);
-    const werte = (params.get('werte') || '').split('|').filter(Boolean);
+    const werte = (params.get('werte') || '').split('|').map(s => s.trim()).filter(Boolean);
     setSelVals(document.getElementById('of-werte'), werte);
-    const jahre = (params.get('jahr') || '').split('|').filter(Boolean);
+    const jahre = (params.get('jahr') || '').split('|').map(s => s.trim()).filter(Boolean);
     setSelVals(document.getElementById('of-jahr'), jahre);
     // Jahr-Filter (wird in refreshYearFilter via URL gesetzt)
 }
@@ -334,8 +341,14 @@ function loadFiltersFromUrl() {
 function setSelVals(el, vals) {
     const id = el.id || '';
     if (mselInstances[id]) { mselSetVals(id, vals); return; }
-    // Simple select: set first matching value, or "" for Alle
-    el.value = vals.length ? vals[0] : '';
+    // Simple select: set first matching value only if it exists as option, else ""
+    if (vals.length) {
+        const opts = [...el.options].map(o => o.value);
+        const match = opts.includes(vals[0]);
+        el.value = match ? vals[0] : '';
+    } else {
+        el.value = '';
+    }
 }
 
 function renderMeters() {
@@ -1041,6 +1054,8 @@ async function loadOverview() {
     try {
         readings = await HP.api(API + '?action=readings');
         refreshYearFilter();
+        // Filter aus URL erneut anwenden (stellt sicher, dass haus/jahr beim direkten Aufruf korrekt sind)
+        loadFiltersFromUrl();
         renderOverview();
     } catch (e) {
         toast('Fehler beim Laden.', 'err');
@@ -1113,12 +1128,15 @@ function renderOverview() {
         if (!datumSubMap[d]) datumSubMap[d] = { hasMA: false, hasAk: false };
 
         // Für jeden Zähler: alle Werte von allen Readings dieses Datums sammeln
+        // Nur Werte verwenden, wo der Zähler zur Ansicht des Readings gehört (Filter-Respekt)
         const meterVals = {}; // meterId → { maVals: [{val, vn}], akVals: [{val, vn}] }
         dObj.readings.forEach(r => {
             const vn = r.viewName || '';
+            const viewAllowed = getViewAllowedMeterIds(vn);
             const werte = r.werte || {};
             Object.entries(werte).forEach(([mid, vals]) => {
                 if (!filteredIds.has(mid)) return;
+                if (!viewAllowed.has(mid)) return; // Zähler gehört nicht zur Ansicht → ignorieren
                 if (!meterVals[mid]) meterVals[mid] = { maVals: [], akVals: [] };
                 const ma = vals.wertMA || '';
                 const ak = vals.wertAktuell || '';
@@ -1153,8 +1171,10 @@ function renderOverview() {
         const yearsFound = new Set();
         readings.forEach(r => {
             const d = r.datum;
+            const viewAllowed = getViewAllowedMeterIds(r.viewName || '');
             Object.entries(r.werte || {}).forEach(([mid, vals]) => {
                 if (!filteredIds.has(mid)) return;
+                if (!viewAllowed.has(mid)) return; // Zähler gehört nicht zur Ansicht → ignorieren
                 const ma = vals.wertMA || '';
                 if (!ma) return;
                 const mObj = meters.find(m => m.nr === mid);
@@ -1471,8 +1491,10 @@ function getOverviewExportData() {
         const meterVals = {};
         dObj.readings.forEach(r => {
             const vn = r.viewName || '';
+            const viewAllowed = getViewAllowedMeterIds(vn);
             Object.entries(r.werte || {}).forEach(([mid, vals]) => {
                 if (!filteredIds.has(mid)) return;
+                if (!viewAllowed.has(mid)) return;
                 if (!meterVals[mid]) meterVals[mid] = { maVals: [], akVals: [] };
                 const ma = vals.wertMA || '';
                 const ak = vals.wertAktuell || '';
@@ -1501,8 +1523,10 @@ function getOverviewExportData() {
         const yearsFound = new Set();
         readings.forEach(r => {
             const d = r.datum;
+            const viewAllowed = getViewAllowedMeterIds(r.viewName || '');
             Object.entries(r.werte || {}).forEach(([mid, vals]) => {
                 if (!filteredIds.has(mid)) return;
+                if (!viewAllowed.has(mid)) return;
                 const ma = vals.wertMA || '';
                 if (!ma) return;
                 const mObj = meters.find(m => m.nr === mid);

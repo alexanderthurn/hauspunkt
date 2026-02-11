@@ -176,18 +176,55 @@ if ($action === 'save' && $method === 'POST') {
         }
     }
 
-    // Werte-Map aus Entries bauen
+    // Erlaubte Zähler-IDs für diese Ansicht (Filter prüfen)
+    $allowedMeterNrs = [];
+    if (!empty($viewName)) {
+        $views = hp_read_json(__DIR__ . '/../admin/data/views.json');
+        $view = null;
+        foreach ($views as $v) {
+            if ($v['name'] === $viewName) {
+                $view = $v;
+                break;
+            }
+        }
+        if ($view) {
+            $meters = hp_read_json(__DIR__ . '/../admin/data/meters.json');
+            $filter = $view['filter'] ?? [];
+            foreach ($meters as $m) {
+                if (!empty($filter['haus']) && ($m['haus'] ?? '') !== $filter['haus'])
+                    continue;
+                if (!empty($filter['einheit']) && is_array($filter['einheit']) && count($filter['einheit']) > 0) {
+                    if (!in_array($m['einheit'] ?? '', $filter['einheit']))
+                        continue;
+                }
+                if (!empty($filter['typ']) && ($m['typ'] ?? '') !== $filter['typ'])
+                    continue;
+                $vFrom = $m['validFrom'] ?? '';
+                $vTo = $m['validTo'] ?? '';
+                if (!empty($vFrom) && $datum < $vFrom)
+                    continue;
+                if (!empty($vTo) && $datum > $vTo)
+                    continue;
+                $allowedMeterNrs[] = $m['nr'];
+            }
+        }
+    }
+    $allowedSet = array_flip($allowedMeterNrs); // für schnelle O(1)-Prüfung
+
+    // Werte-Map aus Entries bauen – nur erlaubte Zähler übernehmen
     $newWerte = [];
     foreach ($entries as $entry) {
         $meterId = (string) ($entry['meterId'] ?? '');
-        $wertMA = (string) ($entry['wertMA'] ?? '');
-        $wertAktuell = (string) ($entry['wertAktuell'] ?? '');
         if ($meterId === '')
             continue;
+        if (!empty($allowedSet) && !isset($allowedSet[$meterId]))
+            continue; // Zähler gehört nicht zur Ansicht → ignorieren
+        $wertMA = (string) ($entry['wertMA'] ?? '');
+        $wertAktuell = (string) ($entry['wertAktuell'] ?? '');
         $newWerte[$meterId] = ['wertMA' => $wertMA, 'wertAktuell' => $wertAktuell];
     }
 
-    if (empty($newWerte)) {
+    if (empty($entries)) {
         hp_json_response(['saved' => 0]);
     }
 
@@ -197,11 +234,14 @@ if ($action === 'save' && $method === 'POST') {
     $found = false;
     foreach ($readings as &$r) {
         if ($r['datum'] === $datum && ($r['viewName'] ?? '') === $viewName) {
-            // Bestehende Werte mergen/überschreiben
             if (!isset($r['werte']))
                 $r['werte'] = [];
             foreach ($newWerte as $mid => $vals) {
                 $r['werte'][$mid] = $vals;
+            }
+            // Fremde Zähler-IDs entfernen (sollten nicht zur Ansicht gehören)
+            if (!empty($allowedSet)) {
+                $r['werte'] = array_intersect_key($r['werte'], $allowedSet);
             }
             $r['notizen'] = $notizen;
             $r['zeitstempel'] = $zeitstempel;
@@ -211,7 +251,7 @@ if ($action === 'save' && $method === 'POST') {
     }
     unset($r);
 
-    if (!$found) {
+    if (!$found && !empty($newWerte)) {
         $readings[] = [
             'id' => hp_generate_id('r'),
             'datum' => $datum,
