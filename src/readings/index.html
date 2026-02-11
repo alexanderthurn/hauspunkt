@@ -400,7 +400,10 @@
         /* ── Mobile: größere Schrift für Smartphones ── */
         @media (max-width: 600px) {
             .col-bezeichnung {
-                line-break: anywhere;
+                line-break: loose;
+                white-space: normal; 
+                word-break: normal;      
+                hyphens: auto;  
             }
 
             .col-choice-btn  {
