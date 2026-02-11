@@ -326,16 +326,20 @@ function syncFiltersToUrl() {
 
 function loadFiltersFromUrl() {
     const params = new URLSearchParams(window.location.search);
-    const haus = (params.get('haus') || '').split('|').map(s => s.trim()).filter(Boolean);
-    const einheit = (params.get('einheit') || '').split('|').map(s => s.trim()).filter(Boolean);
-    const typ = (params.get('typ') || '').split('|').map(s => s.trim()).filter(Boolean);
+    const hausParam = params.get('haus');
+    let haus = (hausParam !== null) ? hausParam.split('|').map(s => s.trim()).filter(Boolean) : [];
+    if (hausParam === null) {
+        const firstHaus = [...new Set(meters.map(m => m.haus).filter(Boolean))].sort()[0];
+        if (firstHaus) haus = [firstHaus];
+    }
     setSelVals(document.getElementById('f-haus'), haus);
-    setSelVals(document.getElementById('f-einheit'), einheit);
-    setSelVals(document.getElementById('f-typ'), typ);
+    setSelVals(document.getElementById('f-einheit'), (params.get('einheit') || '').split('|').map(s => s.trim()).filter(Boolean));
+    setSelVals(document.getElementById('f-typ'), (params.get('typ') || '').split('|').map(s => s.trim()).filter(Boolean));
     setSelVals(document.getElementById('of-haus'), haus);
-    setSelVals(document.getElementById('of-einheit'), einheit);
-    setSelVals(document.getElementById('of-typ'), typ);
-    const werte = (params.get('werte') || '').split('|').map(s => s.trim()).filter(Boolean);
+    setSelVals(document.getElementById('of-einheit'), (params.get('einheit') || '').split('|').map(s => s.trim()).filter(Boolean));
+    setSelVals(document.getElementById('of-typ'), (params.get('typ') || '').split('|').map(s => s.trim()).filter(Boolean));
+    const werteParam = params.get('werte');
+    const werte = (werteParam !== null) ? werteParam.split('|').map(s => s.trim()).filter(Boolean) : ['M/A', 'Aktuell'];
     setSelVals(document.getElementById('of-werte'), werte);
     const jahre = (params.get('jahr') || '').split('|').map(s => s.trim()).filter(Boolean);
     setSelVals(document.getElementById('of-jahr'), jahre);

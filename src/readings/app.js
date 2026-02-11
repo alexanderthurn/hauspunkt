@@ -8,7 +8,7 @@
 var API = 'api.php';
 var viewData = null;
 var showMA = true;
-var showAktuell = false;
+var showAktuell = true;
 var currentDatum = '';
 var sortColReadings = 'haus';
 var sortAscReadings = true;
@@ -45,8 +45,8 @@ async function init() {
                 showMA = hasMA;
                 showAktuell = hasAk;
             } else {
-                showMA = false;
-                showAktuell = false;
+                showMA = true;
+                showAktuell = true;
             }
         }
 
@@ -324,8 +324,8 @@ async function onDatumChange(val) {
                 showMA = hasMA;
                 showAktuell = hasAk;
             } else {
-                showMA = false;
-                showAktuell = false;
+                showMA = true;
+                showAktuell = true;
             }
         }
         render();
