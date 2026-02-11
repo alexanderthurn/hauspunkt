@@ -1293,6 +1293,7 @@ function renderOverview() {
         const thead = document.createElement('thead');
         const thr = document.createElement('tr');
         thr.innerHTML = '<th class="fix-einheit" data-sort="einheit">Einheit</th><th class="fix-bez" data-sort="bezeichnung">Bezeichnung</th><th class="fix-nr" data-sort="nr">Nr.</th>';
+        const meterNrsInHouse = new Set(byHaus[hausName].map(m => m.nr));
         displayCols.forEach(dc => {
             const th = document.createElement('th');
             if (dc.isPlaceholder) {
@@ -1304,23 +1305,28 @@ function renderOverview() {
             }
             th.style.cursor = 'default';
             let dateStr = dc.isGesamt ? 'Stichtag' : HP.formatDate(dc.datum);
+            const relevantReadings = (dc.readings || []).filter(r =>
+                Object.keys(r.werte || {}).some(nr => meterNrsInHouse.has(nr))
+            );
+            const relevantViewNames = [...new Set(relevantReadings.map(r => r.viewName).filter(Boolean))];
+            const relevantIds = relevantReadings.map(r => r.id);
             let label;
-            if (!dc.isGesamt && dc.viewNames.length) {
-                const nameParts = dc.viewNames.map(vn => {
+            if (!dc.isGesamt && relevantViewNames.length) {
+                const nameParts = relevantViewNames.map(vn => {
                     const readingUrl = ovBaseUrl + 'readings/?name=' + encodeURIComponent(vn) + '&datum=' + encodeURIComponent(dc.datum) + '&force=1';
                     return '<a href="' + esc(readingUrl) + '" target="_blank" style="color:#07c;text-decoration:none" title="Ablesung ' + esc(vn) + ' öffnen">' + esc(vn) + '</a>';
                 });
                 label = dateStr + '<br>' + nameParts.join(' ');
-                if (dc.isFirst && dc.ids.length) {
-                    label += ' <button class="b b-d ov-del" data-rids="' + esc(dc.ids.join('|')) + '" style="font-size:9px;padding:0 4px">✕</button>';
+                if (dc.isFirst && relevantIds.length) {
+                    label += ' <button class="b b-d ov-del" data-rids="' + esc(relevantIds.join('|')) + '" style="font-size:9px;padding:0 4px">✕</button>';
                 }
                 label += '<br>' + esc(dc.sc);
-                const notizen = (dc.readings || []).map(r => { const n = (r.notizen || '').trim(); return n ? (dc.viewNames && dc.viewNames.length > 1 ? esc(r.viewName || '') + ': ' + esc(n) : esc(n)) : null; }).filter(Boolean);
+                const notizen = relevantReadings.map(r => { const n = (r.notizen || '').trim(); return n ? (relevantViewNames.length > 1 ? esc(r.viewName || '') + ': ' + esc(n) : esc(n)) : null; }).filter(Boolean);
                 if (notizen.length) label += '<br><span class="ov-notiz" style="display:block;max-width:140px;overflow-wrap:break-word;word-break:break-word">"' + notizen.join('; ') + '"</span>';
             } else {
                 label = dateStr + ' ' + esc(dc.sc);
-                if (dc.isFirst && dc.ids.length) {
-                    label += ' <button class="b b-d ov-del" data-rids="' + esc(dc.ids.join('|')) + '" style="font-size:9px;padding:0 4px">✕</button>';
+                if (dc.isFirst && relevantIds.length) {
+                    label += ' <button class="b b-d ov-del" data-rids="' + esc(relevantIds.join('|')) + '" style="font-size:9px;padding:0 4px">✕</button>';
                 }
             }
             th.innerHTML = label;
@@ -1716,7 +1722,7 @@ function exportOverviewPDF() {
             });
             return row;
         });
-        return { title: 'Haus ' + h, head: headBase, body };
+        return { title: h, head: headBase, body };
     });
     HPExport.exportPDF({
         title: 'Messwerte-Übersicht',
