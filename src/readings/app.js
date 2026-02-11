@@ -63,6 +63,7 @@ async function init() {
                     var data2 = await res2.json();
                     viewData.existing = data2.existing || {};
                     viewData.foreignSources = data2.foreignSources || {};
+                    if (data2.readingDates) viewData.readingDates = data2.readingDates;
                     if (urlParams.get('cols') === null || urlParams.get('cols') === 'none') {
                         var ex = viewData.existing || {};
                         var hasMA = Object.values(ex).some(function (e) { return (e.wertMA || '').trim() !== ''; });
@@ -218,6 +219,18 @@ function render() {
         h += '</tr>';
     });
     h += '</tbody></table></div>';
+
+
+    var rDates = viewData.readingDates || [];
+    if (rDates.length) {
+        h += '<div class="reading-dates-hint">Ihre Ablesungen: ';
+        h += rDates.map(function (d) {
+            var label = formatDateDE(d);
+            return '<a href="#" onclick="onDatumChange(\'' + esc(d) + '\');return false" title="' + esc(label) + '">' + esc(label) + '</a>';
+        }).join(' ');
+        h += '</div>';
+    }
+
     if (locked) {
         var from = viewData.view.editableFrom || '';
         var until = viewData.view.editableUntil || '';
@@ -301,6 +314,7 @@ async function onDatumChange(val) {
         viewData.readingId = data.readingId || '';
         viewData.pdf = data.pdf || '';
         viewData.foreignSources = data.foreignSources || {};
+        if (data.readingDates) viewData.readingDates = data.readingDates;
         viewData.datum = val;
         if (urlParams.get('cols') === null || urlParams.get('cols') === 'none') {
             var ex = viewData.existing || {};
@@ -384,6 +398,9 @@ async function doSave() {
             viewData.existing[e.meterId].wertMA = e.wertMA;
             viewData.existing[e.meterId].wertAktuell = e.wertAktuell;
         });
+        if (entries.length && (!viewData.readingDates || viewData.readingDates.indexOf(currentDatum) === -1)) {
+            viewData.readingDates = (viewData.readingDates || []).concat(currentDatum).sort();
+        }
         toast('✓ ' + (result.saved || 0) + ' Wert(e) gespeichert!', 'ok');
         btn.disabled = false; btn.textContent = 'Speichern';
         render(); // Erneutes Rendern um Upload-Button anzuzeigen

@@ -153,6 +153,21 @@ if ($action === 'load' && $method === 'GET') {
     }
     unset($vals);
 
+    // Datumsliste mit Ablesungen für diese Ansicht (zum einfachen Auffinden)
+    $readingDates = [];
+    foreach ($readings as $r) {
+        if (($r['viewName'] ?? '') !== $name) continue;
+        $werte = $r['werte'] ?? [];
+        foreach ($werte as $vals) {
+            if (((string) ($vals['wertMA'] ?? '')) !== '' || ((string) ($vals['wertAktuell'] ?? '')) !== '') {
+                $readingDates[] = $r['datum'];
+                break;
+            }
+        }
+    }
+    $readingDates = array_values(array_unique($readingDates));
+    sort($readingDates);
+
     hp_json_response([
         'view' => [
             'id' => $view['id'],
@@ -167,6 +182,7 @@ if ($action === 'load' && $method === 'GET') {
         'existing' => $existing,
         'notizen' => $notizen,
         'foreignSources' => $foreignSources,
+        'readingDates' => $readingDates,
     ]);
 }
 
