@@ -1422,6 +1422,9 @@ function initGlobalMenu() {
             menu.push({ label: 'CSV exportieren', icon: '📄', onClick: exportOverviewCSV });
             menu.push({ label: 'Excel exportieren', icon: '📊', onClick: exportOverviewExcel });
             menu.push({ label: 'PDF exportieren', icon: '📕', onClick: exportOverviewPDF });
+            menu.push({ separator: true });
+            menu.push({ label: 'Backup herunterladen', icon: '💾', onClick: downloadFullBackup });
+            menu.push({ label: 'Backup hochladen', icon: '📤', onClick: uploadFullBackup });
         } else if (activeTab === 'views') {
             menu.push({ label: 'Zählerverwaltung', icon: '📐', onClick: () => switchTab('meters') });
             menu.push({ label: 'Messwerte anzeigen', icon: '📊', onClick: () => switchTab('overview') });
@@ -1732,6 +1735,82 @@ function exportOverviewPDF() {
         orientation: 'landscape'
     });
     toast('PDF exportiert.', 'ok');
+}
+
+async function downloadFullBackup() {
+    try {
+        const res = await fetch('backup.php?action=download');
+        if (!res.ok) {
+            const text = await res.text();
+            let msg = 'HTTP ' + res.status;
+            try {
+                const data = JSON.parse(text);
+                msg = data.error || msg;
+            } catch {
+                if (text) msg = text;
+            }
+            throw new Error(msg);
+        }
+
+        const blob = await res.blob();
+        const cd = res.headers.get('Content-Disposition') || '';
+        const m = cd.match(/filename="?([^"]+)"?/i);
+        const fallback = 'hp_backup_' + new Date().toISOString().slice(0, 10) + '.zip';
+        const filename = (m && m[1]) ? m[1] : fallback;
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+
+        toast('Backup heruntergeladen.', 'ok');
+    } catch (e) {
+        toast('Backup-Fehler: ' + e.message, 'err');
+    }
+}
+
+function uploadFullBackup() {
+    HPExport.promptFileUpload('.zip', async (file) => {
+        if (!file) return;
+        if (!confirm('Backup einspielen? Bestehende Dateien können überschrieben werden.')) return;
+
+        const fd = new FormData();
+        fd.append('backup', file);
+
+        try {
+            const res = await fetch('backup.php?action=upload', { method: 'POST', body: fd });
+            const text = await res.text();
+            let data = null;
+            try {
+                data = JSON.parse(text);
+            } catch {
+                throw new Error(text || ('HTTP ' + res.status));
+            }
+            if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+
+            const created = Array.isArray(data.created) ? data.created : [];
+            const overwritten = Array.isArray(data.overwritten) ? data.overwritten : [];
+            const skipped = Array.isArray(data.skipped) ? data.skipped : [];
+
+            toast('Backup eingespielt: ' + created.length + ' neu, ' + overwritten.length + ' überschrieben.', 'ok');
+
+            let details = 'Backup erfolgreich eingespielt.';
+            details += '\n\nNeu (' + created.length + '):\n' + (created.length ? created.join('\n') : '—');
+            details += '\n\nÜberschrieben (' + overwritten.length + '):\n' + (overwritten.length ? overwritten.join('\n') : '—');
+            if (skipped.length) {
+                details += '\n\nÜbersprungen (' + skipped.length + '):\n' + skipped.join('\n');
+            }
+            alert(details);
+
+            await loadAll();
+        } catch (e) {
+            toast('Backup-Fehler: ' + e.message, 'err');
+        }
+    });
 }
 
 async function deleteFilteredMeters() {
