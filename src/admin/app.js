@@ -1080,7 +1080,7 @@ function initOverviewEvents() {
     mselInit('of-typ', ovFilterChange);
     mselInit('of-werte', ovFilterChange);
     mselInit('of-jahr', ovFilterChange);
-    document.getElementById('ov-head').addEventListener('click', e => {
+    document.getElementById('ov-scroll').addEventListener('click', e => {
         const th = e.target.closest('th[data-sort]');
         if (!th) return;
         const col = th.dataset.sort;
@@ -1254,55 +1254,6 @@ function renderOverview() {
         displayCols.push({ isPlaceholder: true, sc: 'Keine Daten vorhanden', viewNames: [], ids: [] });
     }
 
-    // Schritt 4: Header rendern (fix-Spalten sortierbar)
-    const thead = document.getElementById('ov-head');
-    thead.innerHTML = '<th class="fix-haus" data-sort="haus">Haus</th><th class="fix-einheit" data-sort="einheit">Einheit</th><th class="fix-bez" data-sort="bezeichnung">Bezeichnung</th><th class="fix-nr" data-sort="nr">Nr.</th>';
-    const ovBaseUrl = window.location.href.replace(/admin\/.*$/, '');
-    displayCols.forEach(dc => {
-        const th = document.createElement('th');
-        if (dc.isPlaceholder) {
-            th.textContent = dc.sc;
-            th.style.color = '#999';
-            th.style.fontWeight = 'normal';
-            thead.appendChild(th);
-            return;
-        }
-        th.style.cursor = 'default';
-        let dateStr = dc.isGesamt ? 'Stichtag' : HP.formatDate(dc.datum);
-
-        // Header: Reading-Spalten dreizeilig: Datum | Links+Delete | M/A+Notizen
-        // Stichtag M/A Spalten: einzeilig
-        let label;
-        if (!dc.isGesamt && dc.viewNames.length) {
-            const nameParts = dc.viewNames.map(vn => {
-                const readingUrl = ovBaseUrl + 'readings/?name=' + encodeURIComponent(vn) + '&datum=' + encodeURIComponent(dc.datum) + '&force=1';
-                return '<a href="' + esc(readingUrl) + '" target="_blank" style="color:#07c;text-decoration:none" title="Ablesung ' + esc(vn) + ' öffnen">' + esc(vn) + '</a>';
-            });
-            label = dateStr + '<br>' + nameParts.join(' ');
-            if (dc.isFirst && dc.ids.length) {
-                label += ' <button class="b b-d ov-del" data-rids="' + esc(dc.ids.join('|')) + '" style="font-size:9px;padding:0 4px">✕</button>';
-            }
-            label += '<br>' + esc(dc.sc);
-            const notizen = (dc.readings || []).map(r => { const n = (r.notizen || '').trim(); return n ? (dc.viewNames && dc.viewNames.length > 1 ? esc(r.viewName || '') + ': ' + esc(n) : esc(n)) : null; }).filter(Boolean);
-            if (notizen.length) label += '<br><span class="ov-notiz" style="display:block;max-width:140px;overflow-wrap:break-word;word-break:break-word">"' + notizen.join('; ') + '"</span>';
-        } else {
-            label = dateStr + ' ' + esc(dc.sc);
-            if (dc.isFirst && dc.ids.length) {
-                label += ' <button class="b b-d ov-del" data-rids="' + esc(dc.ids.join('|')) + '" style="font-size:9px;padding:0 4px">✕</button>';
-            }
-        }
-        th.innerHTML = label;
-        thead.appendChild(th);
-    });
-
-    // Delete-Buttons verdrahten (jetzt mit mehreren IDs)
-    document.querySelectorAll('.ov-del').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const ids = (btn.dataset.rids || '').split('|').filter(Boolean);
-            if (ids.length) deleteReadings(ids);
-        });
-    });
-
     // Sortieren nach gewählter Spalte
     const sorted = filtered.slice().sort((a, b) => {
         const col = sortColOv || 'haus';
@@ -1312,9 +1263,9 @@ function renderOverview() {
         return sortAscOv ? cmp : -cmp;
     });
 
-    // Schritt 5: Body rendern mit merged Werten
-    const tbody = document.getElementById('ov-body');
-    tbody.innerHTML = '';
+    // Schritt 4+5: Nach Haus gruppieren, ein Block/Tabelle pro Haus (Haus als Überschrift, keine Haus-Spalte)
+    const ovBaseUrl = window.location.href.replace(/admin\/.*$/, '');
+    const byHaus = {};
     sorted.forEach(m => {
         const hasAnyData = displayCols.some(dc => {
             const v = mergedValMap[m.nr + '|' + dc.datum];
@@ -1324,31 +1275,97 @@ function renderOverview() {
         });
         const isActive = displayCols.some(dc => HP.isMeterActive(m, dc.datum));
         if (!isActive && !hasAnyData) return;
+        const h = m.haus || 'Ohne Haus';
+        if (!byHaus[h]) byHaus[h] = [];
+        byHaus[h].push(m);
+    });
+    const hausOrder = Object.keys(byHaus).sort((a, b) => (a || '').localeCompare(b || '', 'de'));
 
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td class="fix-haus">${esc(m.haus)}</td><td class="fix-einheit">${esc(m.einheit)}</td><td class="fix-bez">${esc(m.bezeichnung)}</td><td class="fix-nr">${esc(m.nr)}</td>`;
+    const ovScroll = document.getElementById('ov-scroll');
+    ovScroll.innerHTML = '';
+    hausOrder.forEach(hausName => {
+        const block = document.createElement('div');
+        block.className = 'ov-haus-block';
+        block.innerHTML = '<div class="ov-haus-title">' + esc(hausName) + '</div>';
+        const table = document.createElement('table');
+        table.className = 'ov-table';
+
+        const thead = document.createElement('thead');
+        const thr = document.createElement('tr');
+        thr.innerHTML = '<th class="fix-einheit" data-sort="einheit">Einheit</th><th class="fix-bez" data-sort="bezeichnung">Bezeichnung</th><th class="fix-nr" data-sort="nr">Nr.</th>';
         displayCols.forEach(dc => {
-            const td = document.createElement('td');
+            const th = document.createElement('th');
             if (dc.isPlaceholder) {
-                td.innerHTML = '<span style="color:#eee">—</span>';
-                td.style.textAlign = 'center';
-                tr.appendChild(td);
+                th.textContent = dc.sc;
+                th.style.color = '#999';
+                th.style.fontWeight = 'normal';
+                thr.appendChild(th);
                 return;
             }
-            const v = mergedValMap[m.nr + '|' + dc.datum];
-            if (v) {
-                const val = (dc.sc === 'M/A' || dc.isGesamt) ? (v.wertMA || '') : (v.wertAktuell || '');
-                const isConflict = dc.sc === 'M/A' ? v.maConflict : v.akConflict;
-                td.textContent = val;
-                if (isConflict) {
-                    td.style.color = '#c62828';
-                    td.style.fontWeight = '600';
-                    td.title = 'Unterschiedliche Werte von verschiedenen Ablesern';
+            th.style.cursor = 'default';
+            let dateStr = dc.isGesamt ? 'Stichtag' : HP.formatDate(dc.datum);
+            let label;
+            if (!dc.isGesamt && dc.viewNames.length) {
+                const nameParts = dc.viewNames.map(vn => {
+                    const readingUrl = ovBaseUrl + 'readings/?name=' + encodeURIComponent(vn) + '&datum=' + encodeURIComponent(dc.datum) + '&force=1';
+                    return '<a href="' + esc(readingUrl) + '" target="_blank" style="color:#07c;text-decoration:none" title="Ablesung ' + esc(vn) + ' öffnen">' + esc(vn) + '</a>';
+                });
+                label = dateStr + '<br>' + nameParts.join(' ');
+                if (dc.isFirst && dc.ids.length) {
+                    label += ' <button class="b b-d ov-del" data-rids="' + esc(dc.ids.join('|')) + '" style="font-size:9px;padding:0 4px">✕</button>';
+                }
+                label += '<br>' + esc(dc.sc);
+                const notizen = (dc.readings || []).map(r => { const n = (r.notizen || '').trim(); return n ? (dc.viewNames && dc.viewNames.length > 1 ? esc(r.viewName || '') + ': ' + esc(n) : esc(n)) : null; }).filter(Boolean);
+                if (notizen.length) label += '<br><span class="ov-notiz" style="display:block;max-width:140px;overflow-wrap:break-word;word-break:break-word">"' + notizen.join('; ') + '"</span>';
+            } else {
+                label = dateStr + ' ' + esc(dc.sc);
+                if (dc.isFirst && dc.ids.length) {
+                    label += ' <button class="b b-d ov-del" data-rids="' + esc(dc.ids.join('|')) + '" style="font-size:9px;padding:0 4px">✕</button>';
                 }
             }
-            tr.appendChild(td);
+            th.innerHTML = label;
+            thr.appendChild(th);
         });
-        tbody.appendChild(tr);
+        thead.appendChild(thr);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        byHaus[hausName].forEach(m => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = '<td class="fix-einheit">' + esc(m.einheit) + '</td><td class="fix-bez">' + esc(m.bezeichnung) + '</td><td class="fix-nr">' + esc(m.nr) + '</td>';
+            displayCols.forEach(dc => {
+                const td = document.createElement('td');
+                if (dc.isPlaceholder) {
+                    td.innerHTML = '<span style="color:#eee">—</span>';
+                    td.style.textAlign = 'center';
+                    tr.appendChild(td);
+                    return;
+                }
+                const v = mergedValMap[m.nr + '|' + dc.datum];
+                if (v) {
+                    const val = (dc.sc === 'M/A' || dc.isGesamt) ? (v.wertMA || '') : (v.wertAktuell || '');
+                    const isConflict = dc.sc === 'M/A' ? v.maConflict : v.akConflict;
+                    td.textContent = val;
+                    if (isConflict) {
+                        td.style.color = '#c62828';
+                        td.style.fontWeight = '600';
+                        td.title = 'Unterschiedliche Werte von verschiedenen Ablesern';
+                    }
+                }
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        block.appendChild(table);
+        ovScroll.appendChild(block);
+    });
+
+    document.querySelectorAll('.ov-del').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const ids = (btn.dataset.rids || '').split('|').filter(Boolean);
+            if (ids.length) deleteReadings(ids);
+        });
     });
 }
 
@@ -1673,27 +1690,38 @@ function exportOverviewExcel() {
 
 function exportOverviewPDF() {
     const { sorted, displayCols, mergedValMap } = getOverviewExportData();
-    const head = ['Haus', 'Einheit', 'Bez.', 'Nr.', 'Typ', 'Fkt.', 'Sticht.', 'v.', 'b.'];
+    // PDF: Haus auf Tabellen-Überschrift, keine Spalten Fkt./Sticht./v./b. – ein Tabelle pro Haus
+    const headBase = ['Einheit', 'Bez.', 'Nr.'];
     displayCols.forEach(dc => {
         let dStr = dc.isGesamt ? 'Stichtag' : HP.formatDate(dc.datum);
         dStr += (dc.viewNames.length ? '\n' + dc.viewNames.join(' ') : '') + '\n' + dc.sc;
         const notizen = (dc.readings || []).map(r => { const n = (r.notizen || '').trim(); return n ? (dc.viewNames && dc.viewNames.length > 1 ? (r.viewName || '') + ': ' + n : n) : null; }).filter(Boolean);
         if (notizen.length) dStr += '\n"' + notizen.join('; ') + '"';
-        head.push(dStr);
+        headBase.push(dStr);
     });
-    const body = sorted.map(m => {
-        const row = [m.haus, m.einheit, m.bezeichnung, m.nr, m.typ, m.faktor || '', m.stichtag || '31.12', m.validFrom || '', m.validTo || ''];
-        displayCols.forEach(dc => {
-            const v = mergedValMap[m.nr + '|' + dc.datum];
-            row.push(v ? ((dc.sc === 'M/A' || dc.isGesamt) ? (v.wertMA || '') : (v.wertAktuell || '')) : '');
+    const byHaus = {};
+    sorted.forEach(m => {
+        const h = m.haus || 'Ohne Haus';
+        if (!byHaus[h]) byHaus[h] = [];
+        byHaus[h].push(m);
+    });
+    const hausOrder = Object.keys(byHaus).sort((a, b) => (a || '').localeCompare(b || '', 'de'));
+    const tables = hausOrder.map(h => {
+        const meters = byHaus[h];
+        const body = meters.map(m => {
+            const row = [m.einheit, m.bezeichnung, m.nr];
+            displayCols.forEach(dc => {
+                const v = mergedValMap[m.nr + '|' + dc.datum];
+                row.push(v ? ((dc.sc === 'M/A' || dc.isGesamt) ? (v.wertMA || '') : (v.wertAktuell || '')) : '');
+            });
+            return row;
         });
-        return row;
+        return { title: 'Haus ' + h, head: headBase, body };
     });
     HPExport.exportPDF({
         title: 'Messwerte-Übersicht',
         subtitle: sorted.length + ' Zähler, ' + displayCols.length + ' Werte-Spalten',
-        head: head,
-        body: body,
+        tables: tables,
         filename: 'messwerte.pdf',
         orientation: 'landscape'
     });

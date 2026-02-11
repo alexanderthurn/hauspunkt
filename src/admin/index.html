@@ -428,7 +428,18 @@
             border: 1px solid #ddd;
         }
 
-        .ov-table .fix-haus {
+        .ov-haus-block {
+            margin-bottom: 16px;
+        }
+
+        .ov-haus-title {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 4px;
+            color: #333;
+        }
+
+        .ov-table .fix-einheit {
             background: #f5f5f5;
             position: sticky;
             left: 0;
@@ -436,18 +447,10 @@
             min-width: 50px;
         }
 
-        .ov-table .fix-einheit {
-            background: #f5f5f5;
-            position: sticky;
-            left: 50px;
-            z-index: 2;
-            min-width: 50px;
-        }
-
         .ov-table .fix-bez {
             background: #f5f5f5;
             position: sticky;
-            left: 100px;
+            left: 50px;
             z-index: 2;
             min-width: 80px;
         }
@@ -455,7 +458,7 @@
         .ov-table .fix-nr {
             background: #f5f5f5;
             position: sticky;
-            left: 180px;
+            left: 130px;
             z-index: 2;
             min-width: 40px;
             border-right: 2px solid #bbb;
@@ -465,10 +468,6 @@
         .ov-table th .ov-notiz {
             white-space: normal;
             max-width: 160px;
-        }
-
-        .ov-table tbody .fix-haus {
-            background: #fff;
         }
 
         .ov-table tbody .fix-einheit {
@@ -807,14 +806,7 @@
                 <span class="sp"></span>
             </div>
             <p class="hint">M/A = Memory/Stichtag, Aktuell = Ablesewert/Alt-Wert</p>
-            <div class="ov-scroll">
-                <table class="ov-table">
-                    <thead>
-                        <tr id="ov-head"></tr>
-                    </thead>
-                    <tbody id="ov-body"></tbody>
-                </table>
-            </div>
+            <div id="ov-scroll" class="ov-scroll"></div>
         </div>
     </div>
     <div id="toast"></div>

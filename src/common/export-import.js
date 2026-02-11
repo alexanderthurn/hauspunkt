@@ -109,6 +109,7 @@ const HPExport = {
     },
 
     // ── PDF Export (Tabelle) ─────────────────────────────────────
+    // Unterstützt config.tables: [{ title, head, body }, ...] für mehrere Tabellen (z.B. eine pro Haus)
     exportPDF(config) {
         if (typeof jspdf === 'undefined') { alert('PDF-Bibliothek nicht geladen.'); return; }
         const { jsPDF } = jspdf;
@@ -118,8 +119,9 @@ const HPExport = {
             format: 'a4'
         });
         const pageW = doc.internal.pageSize.getWidth();
+        const pageH = doc.internal.pageSize.getHeight();
 
-        // Titel
+        // Titel (nur bei erster Tabelle)
         doc.setFontSize(14);
         doc.text(config.title || 'Hauspunkt Export', 10, 12);
         if (config.subtitle) {
@@ -133,27 +135,46 @@ const HPExport = {
         doc.setFontSize(8);
         doc.text('Erstellt: ' + new Date().toLocaleDateString('de-DE'), pageW - 10, 12, { align: 'right' });
 
-        const startY = config.subtitle ? 22 : 16;
+        let startY = config.subtitle ? 22 : 16;
 
-        doc.autoTable({
-            head: [config.head],
-            body: config.body,
-            startY: startY,
+        const tables = config.tables || [{ head: config.head, body: config.body }];
+        const tableOpts = {
             styles: { fontSize: 8, cellPadding: 1.5, lineColor: [200, 200, 200], lineWidth: 0.1 },
             headStyles: { fillColor: [240, 240, 240], textColor: [40, 40, 40], fontStyle: 'bold', lineWidth: 0.1 },
             alternateRowStyles: { fillColor: [250, 250, 250] },
             margin: { left: 10, right: 10 },
             didDrawPage: function (data) {
-                // Footer
                 doc.setFontSize(7);
                 doc.setTextColor(150);
-                doc.text('Hauspunkt', 10, doc.internal.pageSize.getHeight() - 5);
-                doc.text('Seite ' + doc.internal.getNumberOfPages(), pageW - 10, doc.internal.pageSize.getHeight() - 5, { align: 'right' });
+                doc.text('Hauspunkt', 10, pageH - 5);
+                doc.text('Seite ' + doc.internal.getNumberOfPages(), pageW - 10, pageH - 5, { align: 'right' });
             }
+        };
+
+        tables.forEach((tbl, idx) => {
+            if (tbl.title) {
+                // Haus-Überschrift über der Tabelle
+                if (startY > pageH - 30) {
+                    doc.addPage();
+                    startY = 12;
+                }
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'bold');
+                doc.setTextColor(0);
+                doc.text(tbl.title, 10, startY);
+                startY += 6;
+            }
+            doc.autoTable({
+                ...tableOpts,
+                head: [tbl.head],
+                body: tbl.body,
+                startY: startY
+            });
+            startY = doc.lastAutoTable.finalY + 8;
         });
 
         if (typeof config.afterDraw === 'function') {
-            config.afterDraw(doc, doc.lastAutoTable.finalY, pageW);
+            config.afterDraw(doc, startY, pageW);
         }
 
         doc.save(config.filename || 'export.pdf');
